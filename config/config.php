@@ -6,7 +6,7 @@ declare(strict_types=1);
 // Keep the app runnable under a subfolder (XAMPP) like:
 // http://localhost/web_gamon/
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/web_gamon/'); // MUST end with trailing slash
+    define('BASE_URL', '/gamon/'); // MUST end with trailing slash
 }
 
 return [
