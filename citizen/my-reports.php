@@ -8,8 +8,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/../core/bootstrap.php';
 
 $user = \WebGamon\Core\Auth::user();
-if (!$user) {
-    redirect(base_url('login.php'));
+
+// SECURITY FIX: Redirect if not logged in OR if not a citizen
+if (!$user || $user['role'] !== 'citizen') {
+    redirect(base_url('dashboard.php'));
 }
 
 $title = 'My Reports';
