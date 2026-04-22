@@ -13,24 +13,80 @@ if (!$user) {
 }
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$title = 'Report Detail';
+$title = 'Report Details';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="panel">
-  <h1>Report Detail</h1>
-  <p>URL example: <code>/citizen/report-detail.php?id=1</code></p>
-  <pre id="data" class="panel" style="white-space: pre-wrap; overflow:auto;"></pre>
+<div class="panel max-560">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>Report Details</h1>
+    <a href="<?= e(base_url('citizen/my-reports.php')) ?>" class="btn">Back</a>
+  </div>
+  <div class="spacer"></div>
+
+  <div id="loading">Loading details...</div>
+  
+  <div id="reportContent" style="display: none;">
+    <div class="kpi">
+        <div class="label">Report ID</div>
+        <div class="value" id="res_id"></div>
+    </div>
+    <div class="spacer"></div>
+    
+    <div class="field">
+        <label>Status</label>
+        <div id="res_status" style="font-weight: bold; font-size: 1.2rem;"></div>
+    </div>
+
+    <div class="field">
+        <label>Category & Area</label>
+        <div id="res_cat_area" style="color: var(--text);"></div>
+    </div>
+
+    <div class="field">
+        <label>Description</label>
+        <p id="res_desc" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-top: 5px;"></p>
+    </div>
+
+    <div class="field">
+        <label>Reported Date</label>
+        <div id="res_date" style="color: var(--muted);"></div>
+    </div>
+  </div>
 </div>
 
 <script>
   (async () => {
-    const pre = document.getElementById('data');
-    const id = <?= (int)$id ?>;
-    const res = await fetch(window.BASE_URL + 'api/reports/detail.php?id=' + encodeURIComponent(id), { credentials: 'same-origin' });
-    pre.textContent = JSON.stringify(await res.json(), null, 2);
+    const reportId = <?= (int)$id ?>;
+    try {
+      const res = await fetch(window.BASE_URL + 'api/reports/detail.php?id=' + reportId, { credentials: 'same-origin' });
+      const data = await res.json();
+
+      if (!data.ok) {
+        document.getElementById('loading').innerHTML = '<div class="alert">Report not found.</div>';
+        return;
+      }
+
+      const item = data.item;
+      document.getElementById('res_id').textContent = '#' + item.id;
+      
+      const statusEl = document.getElementById('res_status');
+      statusEl.textContent = item.status.toUpperCase();
+      if (item.status === 'open') statusEl.style.color = 'var(--danger)';
+      else if (item.status === 'resolved') statusEl.style.color = 'var(--ok)';
+      else statusEl.style.color = 'var(--accent)';
+
+      document.getElementById('res_cat_area').textContent = item.category + ' | ' + item.area;
+      document.getElementById('res_desc').textContent = item.description;
+      document.getElementById('res_date').textContent = item.created_at;
+      
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('reportContent').style.display = 'block';
+
+    } catch (err) {
+      document.getElementById('loading').textContent = 'Error loading report details.';
+    }
   })();
 </script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>
-
