@@ -5,7 +5,7 @@ declare(strict_types=1);
 // api/reports/list.php
 // Lists reports:
 // - citizen: only own reports
-// - personnel/admin: all reports
+// - personnel/admin: all reports, or filtered by assigned_to=me
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
@@ -31,6 +31,13 @@ if ($user['role'] === 'citizen') {
     $params[':citizen_id'] = (int)$user['id'];
 }
 
+$joinAssignments = '';
+if (isset($_GET['assigned_to']) && $_GET['assigned_to'] === 'me' && in_array($user['role'], ['personnel', 'admin'])) {
+    $joinAssignments = ' JOIN assignments asm ON asm.report_id = r.id ';
+    $where[] = 'asm.personnel_id = :personnel_id';
+    $params[':personnel_id'] = (int)$user['id'];
+}
+
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 $sql = "
@@ -46,6 +53,7 @@ $sql = "
   JOIN categories c ON c.id = r.category_id
   JOIN areas a ON a.id = r.area_id
   JOIN users u ON u.id = r.citizen_id
+  $joinAssignments
   $whereSql
   ORDER BY r.id DESC
   LIMIT :limit
@@ -54,7 +62,7 @@ $sql = "
 $stmt = DB::pdo()->prepare($sql);
 foreach ($params as $k => $v) {
     $type = \PDO::PARAM_STR;
-    if ($k === ':limit' || $k === ':citizen_id') {
+    if ($k === ':limit' || $k === ':citizen_id' || $k === ':personnel_id') {
         $type = \PDO::PARAM_INT;
     }
     $stmt->bindValue($k, $v, $type);
@@ -62,4 +70,3 @@ foreach ($params as $k => $v) {
 $stmt->execute();
 
 Response::json(['ok' => true, 'items' => $stmt->fetchAll()]);
-
