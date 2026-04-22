@@ -1,0 +1,9 @@
+/* responsive.css
+ * Keep changes minimal.
+ */
+
+@media (max-width: 520px) {
+  .container { padding: 16px; }
+  .topbar { padding: 12px 14px; }
+}
+

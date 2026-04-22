@@ -1,0 +1,8 @@
+/* layout.css
+ * Layout utilities.
+ */
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.spacer { height: 12px; }
+.max-560 { max-width: 560px; margin: 0 auto; }
+
