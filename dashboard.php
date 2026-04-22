@@ -13,18 +13,20 @@ $title = 'Dashboard';
 require __DIR__ . '/includes/header.php';
 ?>
 
-<!-- dashboard.php
-     Minimal dashboard that calls the session API and shows JSON.
--->
 <div class="panel">
   <span class="badge">Dashboard</span>
   <h1>Welcome, <?= e((string)$user['name']) ?></h1>
-  <p>This page demonstrates API usage via <code>fetch()</code>.</p>
+  <p>Your access level is currently set as: <strong><?= e(ucfirst($user['role'])) ?></strong>.</p>
 
   <div class="row" style="margin-top: 10px;">
-    <a class="btn" href="<?= e(base_url('citizen/index.php')) ?>">Citizen</a>
-    <a class="btn" href="<?= e(base_url('personnel/index.php')) ?>">Personnel</a>
-    <a class="btn" href="<?= e(base_url('admin/index.php')) ?>">Admin</a>
+    <?php if ($user['role'] === 'citizen'): ?>
+        <a class="btn" href="<?= e(base_url('citizen/index.php')) ?>">Citizen Dashboard</a>
+    <?php elseif ($user['role'] === 'personnel'): ?>
+        <a class="btn" href="<?= e(base_url('personnel/index.php')) ?>">Personnel Dashboard</a>
+    <?php elseif ($user['role'] === 'admin'): ?>
+        <a class="btn" href="<?= e(base_url('admin/index.php')) ?>">Admin Dashboard</a>
+    <?php endif; ?>
+    
     <a class="btn danger" href="<?= e(base_url('logout.php')) ?>">Logout</a>
   </div>
 
@@ -43,4 +45,3 @@ require __DIR__ . '/includes/header.php';
 </script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
-
