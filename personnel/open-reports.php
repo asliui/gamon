@@ -85,7 +85,8 @@ require __DIR__ . '/../includes/header.php';
           <td style="padding: 12px 8px;">${item.citizen_email}</td>
           <td style="padding: 12px 8px; color: var(--muted);">${item.created_at}</td>
           <td style="padding: 12px 8px;">
-            <button class="btn" onclick="assignToMe(${item.id})">Assign to me</button>
+            <a href="${window.BASE_URL}personnel/report-detail.php?id=${item.id}" class="btn" style="padding: 6px 10px; font-size: 12px; margin-right: 5px;">View</a>
+            <button class="btn" style="padding: 6px 10px; font-size: 12px;" onclick="assignToMe(${item.id})">Assign</button>
           </td>
         `;
 

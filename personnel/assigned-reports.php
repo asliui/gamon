@@ -79,7 +79,7 @@ require __DIR__ . '/../includes/header.php';
         else if(item.status === 'resolved') statusColor = 'var(--ok)';
 
         // Dynamic action buttons based on status
-        let actionHtml = '-';
+        let actionHtml = '';
         if (item.status === 'assigned') {
           actionHtml = `<button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="updateStatus(${item.id}, 'in_progress')">Start Work</button>`;
         } else if (item.status === 'in_progress') {
@@ -88,6 +88,9 @@ require __DIR__ . '/../includes/header.php';
           actionHtml = `<span style="color: var(--muted); font-size: 12px;">Completed</span>`;
         }
 
+        // View button that always appears
+        let viewBtn = `<a href="${window.BASE_URL}personnel/report-detail.php?id=${item.id}" class="btn" style="padding: 6px 10px; font-size: 12px; margin-right: 8px;">View</a>`;
+
         let shortDesc = item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description;
 
         tr.innerHTML = `
@@ -95,7 +98,7 @@ require __DIR__ . '/../includes/header.php';
           <td style="padding: 12px 8px;">${item.category}<br><small style="color: var(--muted);">${item.area}</small></td>
           <td style="padding: 12px 8px;">${shortDesc}</td>
           <td style="padding: 12px 8px; color: ${statusColor}; font-weight: bold;">${item.status.toUpperCase()}</td>
-          <td style="padding: 12px 8px;">${actionHtml}</td>
+          <td style="padding: 12px 8px; display: flex; align-items: center;">${viewBtn} ${actionHtml}</td>
         `;
 
         tbody.appendChild(tr);
