@@ -3,15 +3,16 @@
 declare(strict_types=1);
 
 // citizen/report-detail.php
-// Shows a single report via /api/reports/detail.php?id=..., including the uploaded image.
+// View accessible by Citizen, Personnel, and Admin.
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
 $user = \WebGamon\Core\Auth::user();
-if (!$user || $user['role'] !== 'citizen') {
-    redirect(base_url('dashboard.php'));
+if (!$user) {
+    redirect(base_url('login.php'));
 }
 
+// REMOVED: Strict citizen check. API handles specific data access.
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $title = 'Report Details';
 require __DIR__ . '/../includes/header.php';
@@ -20,7 +21,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="panel max-560">
   <div style="display: flex; justify-content: space-between; align-items: center;">
     <h1>Report Details</h1>
-    <a href="<?= e(base_url('citizen/my-reports.php')) ?>" class="btn">Back</a>
+    <button class="btn" onclick="window.history.back()">Back</button>
   </div>
   <div class="spacer"></div>
 
@@ -62,13 +63,19 @@ require __DIR__ . '/../includes/header.php';
 
 <script>
   (async () => {
+    // Ensure the ID is a valid number from the URL query string
     const reportId = <?= (int)$id ?>;
+    if (reportId <= 0) {
+        document.getElementById('loading').innerHTML = '<div class="alert">Invalid Report ID.</div>';
+        return;
+    }
+
     try {
       const res = await fetch(window.BASE_URL + 'api/reports/detail.php?id=' + reportId, { credentials: 'same-origin' });
       const data = await res.json();
 
       if (!data.ok) {
-        document.getElementById('loading').innerHTML = '<div class="alert">Report not found.</div>';
+        document.getElementById('loading').innerHTML = `<div class="alert">${data.error || 'Access denied'}</div>`;
         return;
       }
 
@@ -85,7 +92,6 @@ require __DIR__ . '/../includes/header.php';
       document.getElementById('res_desc').textContent = item.description;
       document.getElementById('res_date').textContent = item.created_at;
       
-      // If the report has an image, display the image container
       if (item.image_path) {
           const imgEl = document.getElementById('res_img');
           imgEl.src = window.BASE_URL + item.image_path;
