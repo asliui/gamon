@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 // citizen/report-detail.php
-// Shows a single report via /api/reports/detail.php?id=...
+// Shows a single report via /api/reports/detail.php?id=..., including the uploaded image.
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
 $user = \WebGamon\Core\Auth::user();
-if (!$user) {
-    redirect(base_url('login.php'));
+if (!$user || $user['role'] !== 'citizen') {
+    redirect(base_url('dashboard.php'));
 }
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -48,9 +48,14 @@ require __DIR__ . '/../includes/header.php';
         <p id="res_desc" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-top: 5px;"></p>
     </div>
 
+    <div class="field" id="imageContainer" style="display: none; margin-top: 15px;">
+        <label>Attached Photo</label>
+        <img id="res_img" src="" alt="Waste Report Photo" style="max-width: 100%; border-radius: 10px; border: 1px solid var(--border); margin-top: 5px;" />
+    </div>
+
     <div class="field">
         <label>Reported Date</label>
-        <div id="res_date" style="color: var(--muted);"></div>
+        <div id="res_date" style="color: var(--muted); margin-top: 10px;"></div>
     </div>
   </div>
 </div>
@@ -79,6 +84,13 @@ require __DIR__ . '/../includes/header.php';
       document.getElementById('res_cat_area').textContent = item.category + ' | ' + item.area;
       document.getElementById('res_desc').textContent = item.description;
       document.getElementById('res_date').textContent = item.created_at;
+      
+      // If the report has an image, display the image container
+      if (item.image_path) {
+          const imgEl = document.getElementById('res_img');
+          imgEl.src = window.BASE_URL + item.image_path;
+          document.getElementById('imageContainer').style.display = 'block';
+      }
       
       document.getElementById('loading').style.display = 'none';
       document.getElementById('reportContent').style.display = 'block';
