@@ -8,6 +8,9 @@ $user = \WebGamon\Core\Auth::user();
 if (!$user) {
     redirect(base_url('login.php'));
 }
+if ($user['role'] !== 'citizen') {
+    redirect(base_url('dashboard.php'));
+}
 $title = 'Citizen Dashboard';
 require __DIR__ . '/../includes/header.php';
 ?>

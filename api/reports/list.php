@@ -17,6 +17,8 @@ $user = Auth::requireLogin();
 
 $limit = isset($_GET['limit']) ? max(1, min(200, (int)$_GET['limit'])) : 50;
 $status = isset($_GET['status']) ? (string)$_GET['status'] : null;
+$categoryId = isset($_GET['category_id']) ? (int)$_GET['category_id'] : null;
+$areaId = isset($_GET['area_id']) ? (int)$_GET['area_id'] : null;
 
 $params = [':limit' => $limit];
 $where = [];
@@ -24,6 +26,16 @@ $where = [];
 if ($status !== null && $status !== '') {
     $where[] = 'r.status = :status';
     $params[':status'] = $status;
+}
+
+if ($categoryId !== null && $categoryId > 0) {
+    $where[] = 'r.category_id = :category_id';
+    $params[':category_id'] = $categoryId;
+}
+
+if ($areaId !== null && $areaId > 0) {
+    $where[] = 'r.area_id = :area_id';
+    $params[':area_id'] = $areaId;
 }
 
 if ($user['role'] === 'citizen') {
@@ -62,7 +74,7 @@ $sql = "
 $stmt = DB::pdo()->prepare($sql);
 foreach ($params as $k => $v) {
     $type = \PDO::PARAM_STR;
-    if ($k === ':limit' || $k === ':citizen_id' || $k === ':personnel_id') {
+    if ($k === ':limit' || $k === ':citizen_id' || $k === ':personnel_id' || $k === ':category_id' || $k === ':area_id') {
         $type = \PDO::PARAM_INT;
     }
     $stmt->bindValue($k, $v, $type);

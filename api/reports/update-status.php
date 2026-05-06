@@ -23,10 +23,30 @@ if ($errors) {
     Response::json(['ok' => false, 'error' => 'Validation failed', 'fields' => $errors], 422);
 }
 
+$reportId = (int)$data['report_id'];
+$newStatus = (string)$data['status'];
+
+// Personnel can only update statuses for reports assigned to themselves.
+if ($user['role'] === 'personnel') {
+    $check = DB::pdo()->prepare('
+      SELECT 1
+      FROM assignments
+      WHERE report_id = :report_id AND personnel_id = :personnel_id
+      LIMIT 1
+    ');
+    $check->execute([
+        ':report_id' => $reportId,
+        ':personnel_id' => (int)$user['id'],
+    ]);
+    if (!$check->fetchColumn()) {
+        Response::json(['ok' => false, 'error' => 'Forbidden'], 403);
+    }
+}
+
 $stmt = DB::pdo()->prepare('UPDATE reports SET status = :status, updated_at = datetime(\'now\') WHERE id = :id');
 $stmt->execute([
-    ':status' => (string)$data['status'],
-    ':id' => (int)$data['report_id'],
+    ':status' => $newStatus,
+    ':id' => $reportId,
 ]);
 
 Response::json(['ok' => true]);

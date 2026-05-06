@@ -11,6 +11,9 @@ $user = \WebGamon\Core\Auth::user();
 if (!$user) {
     redirect(base_url('login.php'));
 }
+if ($user['role'] !== 'personnel') {
+    redirect(base_url('dashboard.php'));
+}
 
 $title = 'My Assigned Tasks';
 require __DIR__ . '/../includes/header.php';

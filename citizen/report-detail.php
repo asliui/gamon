@@ -11,6 +11,9 @@ $user = \WebGamon\Core\Auth::user();
 if (!$user) {
     redirect(base_url('login.php'));
 }
+if ($user['role'] !== 'citizen') {
+    redirect(base_url('dashboard.php'));
+}
 
 // REMOVED: Strict citizen check. API handles specific data access.
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

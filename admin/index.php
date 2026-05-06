@@ -32,37 +32,44 @@ require __DIR__ . '/../includes/header.php';
   <div class="spacer" style="height: 30px;"></div>
 
   <h2 style="font-size: 1.2rem; margin-bottom: 15px; color: var(--muted);">System Summary</h2>
-  
-  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+
+  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 15px;">
     <div class="kpi">
-        <div class="label">Total Reports Created</div>
-        <div class="value" id="count_total">...</div>
+      <div class="label">Total Reports</div>
+      <div class="value" id="kpiTotalReports">—</div>
     </div>
     <div class="kpi" style="border-color: var(--danger);">
-        <div class="label">Pending (Open)</div>
-        <div class="value" id="count_open" style="color: var(--danger);">...</div>
+      <div class="label">Pending (Open)</div>
+      <div class="value" id="kpiPendingReports" style="color: var(--danger);">—</div>
     </div>
     <div class="kpi" style="border-color: var(--ok);">
-        <div class="label">Successfully Resolved</div>
-        <div class="value" id="count_resolved" style="color: var(--ok);">...</div>
+      <div class="label">Resolved</div>
+      <div class="value" id="kpiCleanedReports" style="color: var(--ok);">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Total Users</div>
+      <div class="value" id="kpiTotalUsers">—</div>
     </div>
   </div>
 </div>
 
-<script src="<?= e(base_url('assets/js/reports.js')) ?>"></script>
 <script>
   (async () => {
     try {
       const res = await fetch(window.BASE_URL + 'api/analytics/summary.php', { credentials: 'same-origin' });
       const data = await res.json();
-      
-      if (data.ok) {
-          document.getElementById('count_total').textContent = data.total;
-          document.getElementById('count_open').textContent = data.open;
-          document.getElementById('count_resolved').textContent = data.resolved;
+      if (!data || !data.ok) {
+        throw new Error('Bad response');
       }
+      document.getElementById('kpiTotalReports').textContent = String(data.total_reports ?? '0');
+      document.getElementById('kpiPendingReports').textContent = String(data.pending_reports ?? '0');
+      document.getElementById('kpiCleanedReports').textContent = String(data.cleaned_reports ?? '0');
+      document.getElementById('kpiTotalUsers').textContent = String(data.total_users ?? '0');
     } catch (e) {
-      console.error('Failed to load admin summary stats', e);
+      document.getElementById('kpiTotalReports').textContent = 'ERR';
+      document.getElementById('kpiPendingReports').textContent = 'ERR';
+      document.getElementById('kpiCleanedReports').textContent = 'ERR';
+      document.getElementById('kpiTotalUsers').textContent = 'ERR';
     }
   })();
 </script>
