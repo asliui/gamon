@@ -20,6 +20,14 @@ require __DIR__ . '/../includes/header.php';
   <h1>Reports</h1>
   <p>Overview of all submitted reports across the system.</p>
 
+  <div class="row" style="margin-top: 12px; gap: 10px; flex-wrap: wrap;">
+    <a class="btn" href="<?= e(base_url('api/exports/csv.php')) ?>">Export CSV</a>
+    <a class="btn" href="<?= e(base_url('api/exports/json.php')) ?>">Export JSON</a>
+    <a class="btn" href="<?= e(base_url('api/exports/html.php')) ?>">Export HTML</a>
+    <a class="btn" href="<?= e(base_url('admin/analytics.php')) ?>">Analytics</a>
+    <a class="btn" href="<?= e(base_url('admin/import.php')) ?>">Import Data</a>
+  </div>
+
   <form method="get" class="panel" style="margin: 12px 0;">
     <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
       <div class="field" style="margin: 0;">
@@ -117,21 +125,45 @@ require __DIR__ . '/../includes/header.php';
         return;
       }
 
-      tbody.innerHTML = '';
-      data.items.forEach(item => {
+      tbody.textContent = '';
+      data.items.forEach((item) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
 
-        const viewUrl = `${window.BASE_URL}api/reports/detail.php?id=${encodeURIComponent(String(item.id))}`;
+        const tdId = document.createElement('td');
+        tdId.style.padding = '12px 8px';
+        tdId.style.color = 'var(--muted)';
+        tdId.textContent = '#' + item.id;
 
-        tr.innerHTML = `
-          <td style="padding: 12px 8px; color: var(--muted);">#${item.id}</td>
-          <td style="padding: 12px 8px;"><strong>${item.category}</strong><br><small style="color:var(--muted)">${item.area}</small></td>
-          <td style="padding: 12px 8px; font-weight: bold; font-size: 12px;">${String(item.status || '').toUpperCase()}</td>
-          <td style="padding: 12px 8px;">
-            <a href="${viewUrl}" class="btn" style="padding: 6px 10px; font-size: 12px;" target="_blank" rel="noopener">View (JSON)</a>
-          </td>
-        `;
+        const tdCat = document.createElement('td');
+        tdCat.style.padding = '12px 8px';
+        const strong = document.createElement('strong');
+        strong.textContent = item.category ?? '';
+        const br = document.createElement('br');
+        const small = document.createElement('small');
+        small.style.color = 'var(--muted)';
+        small.textContent = item.area ?? '';
+        tdCat.appendChild(strong);
+        tdCat.appendChild(br);
+        tdCat.appendChild(small);
+
+        const tdStatus = document.createElement('td');
+        tdStatus.style.padding = '12px 8px';
+        tdStatus.style.fontWeight = 'bold';
+        tdStatus.style.fontSize = '12px';
+        tdStatus.textContent = String(item.status || '').toUpperCase();
+
+        const tdAct = document.createElement('td');
+        tdAct.style.padding = '12px 8px';
+        const link = document.createElement('a');
+        link.href = window.BASE_URL + 'admin/report-detail.php?id=' + encodeURIComponent(String(item.id));
+        link.className = 'btn';
+        link.style.padding = '6px 10px';
+        link.style.fontSize = '12px';
+        link.textContent = 'View';
+        tdAct.appendChild(link);
+
+        tr.append(tdId, tdCat, tdStatus, tdAct);
         tbody.appendChild(tr);
       });
     } catch (e) {

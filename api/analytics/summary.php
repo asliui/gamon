@@ -16,7 +16,7 @@ Auth::requireRole('admin');
 $totalReports = (int)DB::pdo()->query('SELECT COUNT(*) AS c FROM reports')->fetch()['c'];
 $pendingReports = (int)DB::pdo()->query("SELECT COUNT(*) AS c FROM reports WHERE status = 'open'")->fetch()['c'];
 $cleanedReports = (int)DB::pdo()->query("SELECT COUNT(*) AS c FROM reports WHERE status = 'resolved'")->fetch()['c'];
-$totalUsers = (int)DB::pdo()->query('SELECT COUNT(*) AS c FROM users')->fetch()['c'];
+$totalUsers = (int)DB::pdo()->query('SELECT COUNT(*) AS c FROM users WHERE is_deleted = 0')->fetch()['c'];
 
 $stmt = DB::pdo()->query("
   SELECT status, COUNT(*) AS count

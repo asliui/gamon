@@ -20,24 +20,34 @@ $user = $user ?? null;
   <link rel="stylesheet" href="<?= e(base_url('assets/css/layout.css')) ?>" />
   <link rel="stylesheet" href="<?= e(base_url('assets/css/forms.css')) ?>" />
   <link rel="stylesheet" href="<?= e(base_url('assets/css/responsive.css')) ?>" />
+  <?php
+  $csrfToken = \WebGamon\Core\Csrf::token();
+  $apiJsFile = dirname(__DIR__) . '/assets/js/api.js';
+  $apiJsVersion = file_exists($apiJsFile) ? (string)filemtime($apiJsFile) : '1';
+  ?>
+  <meta name="csrf-token" content="<?= e($csrfToken) ?>" />
   <script>
-    // Expose BASE_URL to vanilla JS (for fetch() + navigation).
     window.BASE_URL = <?= json_encode(BASE_URL, JSON_UNESCAPED_SLASHES) ?>;
+    window.CSRF_TOKEN = <?= json_encode($csrfToken, JSON_UNESCAPED_SLASHES) ?>;
   </script>
+  <script src="<?= e(base_url('assets/js/dom-safe.js')) ?>"></script>
+  <script src="<?= e(base_url('assets/js/api.js')) ?>?v=<?= e($apiJsVersion) ?>"></script>
 </head>
 <body>
-  <div class="topbar">
+  <div class="topbar" id="topbar">
     <div class="brand">Waste Management</div>
-    <div class="nav">
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+    <nav class="nav" id="mainNav">
       <a href="<?= e(base_url()) ?>">Home</a>
       <?php if ($user): ?>
         <a href="<?= e(base_url('dashboard.php')) ?>">Dashboard</a>
+        <a href="<?= e(base_url('account.php')) ?>">Account</a>
         <a href="<?= e(base_url('logout.php')) ?>">Logout</a>
       <?php else: ?>
         <a href="<?= e(base_url('login.php')) ?>">Login</a>
         <a href="<?= e(base_url('register.php')) ?>">Register</a>
       <?php endif; ?>
-    </div>
+    </nav>
   </div>
   <div class="container">
 

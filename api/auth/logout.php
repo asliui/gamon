@@ -7,6 +7,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\Csrf;
+
+Csrf::verify();
 \WebGamon\Core\Auth::logout();
 \WebGamon\Core\Response::json(['ok' => true]);
 

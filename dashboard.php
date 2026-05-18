@@ -22,6 +22,7 @@ require __DIR__ . '/includes/header.php';
           <span class="badge">Welcome Back</span>
           <h1 style="margin-top: 5px;">Hello, <?= e((string)$user['name']) ?>!</h1>
       </div>
+      <a class="btn" href="<?= e(base_url('account.php')) ?>">My Account</a>
       <a class="btn danger" href="<?= e(base_url('logout.php')) ?>">Logout</a>
   </div>
   
@@ -79,4 +80,4 @@ require __DIR__ . '/includes/header.php';
   })();
 </script>
 
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<?php require __DIR__ . '/includes/footer.php'; ?>

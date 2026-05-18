@@ -2,19 +2,21 @@
 
 declare(strict_types=1);
 
-// api/reports/create.php
-// Citizen creates a new waste report, optionally uploading an image.
+// api/reports/create.php — Create a waste report (multipart; citizen by default).
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
 use WebGamon\Core\Auth;
+use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
+use WebGamon\Core\Upload;
 use WebGamon\Core\Validator;
 
 $user = Auth::requireRole('citizen', 'admin', 'personnel');
+Csrf::verify();
 
-// Since we use FormData (multipart) for file uploads, we read from $_POST instead of JSON Body
+$config = require __DIR__ . '/../../config/config.php';
 $data = $_POST;
 
 $errors = [];
@@ -31,7 +33,6 @@ $categoryId = (int)$data['category_id'];
 $areaId = (int)$data['area_id'];
 $description = trim((string)$data['description']);
 
-// Basic referential checks
 $cat = DB::pdo()->prepare('SELECT id FROM categories WHERE id = :id');
 $cat->execute([':id' => $categoryId]);
 if (!$cat->fetch()) {
@@ -44,34 +45,10 @@ if (!$area->fetch()) {
     Response::json(['ok' => false, 'error' => 'Unknown area'], 400);
 }
 
-// --- SECURE NATIVE PHP IMAGE UPLOAD LOGIC ---
 $imagePath = null;
-if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-    $tmpName = $_FILES['image']['tmp_name'];
-    $originalName = basename($_FILES['image']['name']);
-    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-    
-    // Restrict allowed extensions for security
-    if (in_array($extension, ['jpg', 'jpeg', 'png'])) {
-        // Create a unique filename to prevent overwriting existing files
-        $newFileName = uniqid('gamon_', true) . '.' . $extension;
-        $destinationFolder = __DIR__ . '/../../uploads/';
-        
-        // Ensure the uploads directory exists
-        if (!is_dir($destinationFolder)) {
-            mkdir($destinationFolder, 0777, true);
-        }
-
-        $destination = $destinationFolder . $newFileName;
-        
-        // Move the uploaded file from temporary storage to the uploads folder
-        if (move_uploaded_file($tmpName, $destination)) {
-            // Save the relative path for the database
-            $imagePath = 'uploads/' . $newFileName;
-        }
-    }
+if (isset($_FILES['image'])) {
+    $imagePath = Upload::storeReportImage($_FILES['image'], $config);
 }
-// ---------------------------------------------
 
 $stmt = DB::pdo()->prepare('
   INSERT INTO reports (citizen_id, category_id, area_id, description, image_path, status)
@@ -83,7 +60,7 @@ $stmt->execute([
     ':category_id' => $categoryId,
     ':area_id' => $areaId,
     ':description' => $description,
-    ':image_path' => $imagePath, // This will be null if no image was uploaded
+    ':image_path' => $imagePath,
     ':status' => 'open',
 ]);
 

@@ -44,8 +44,6 @@ require __DIR__ . '/../includes/header.php';
   </div>
 </div>
 
-<script src="<?= e(base_url('assets/js/reports.js')) ?>"></script>
-
 <script>
   // Function to handle the assignment action
   async function assignToMe(reportId) {
@@ -75,24 +73,43 @@ require __DIR__ . '/../includes/header.php';
           return;
       }
 
-      tbody.innerHTML = '';
+      tbody.textContent = '';
 
-      data.items.forEach(item => {
+      data.items.forEach((item) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
 
-        tr.innerHTML = `
-          <td style="padding: 12px 8px;">#${item.id}</td>
-          <td style="padding: 12px 8px;">${item.category}</td>
-          <td style="padding: 12px 8px;">${item.area}</td>
-          <td style="padding: 12px 8px;">${item.citizen_email}</td>
-          <td style="padding: 12px 8px; color: var(--muted);">${item.created_at}</td>
-          <td style="padding: 12px 8px;">
-            <a href="${window.BASE_URL}personnel/report-detail.php?id=${item.id}" class="btn" style="padding: 6px 10px; font-size: 12px; margin-right: 5px;">View</a>
-            <button class="btn" style="padding: 6px 10px; font-size: 12px;" onclick="assignToMe(${item.id})">Assign</button>
-          </td>
-        `;
+        function cell(text, style) {
+          const td = document.createElement('td');
+          td.style.padding = '12px 8px';
+          if (style) Object.assign(td.style, style);
+          td.textContent = text ?? '';
+          return td;
+        }
 
+        const tdAct = document.createElement('td');
+        tdAct.style.padding = '12px 8px';
+        const viewLink = document.createElement('a');
+        viewLink.href = window.BASE_URL + 'personnel/report-detail.php?id=' + encodeURIComponent(String(item.id));
+        viewLink.className = 'btn';
+        viewLink.style.cssText = 'padding: 6px 10px; font-size: 12px; margin-right: 5px;';
+        viewLink.textContent = 'View';
+        const assignBtn = document.createElement('button');
+        assignBtn.className = 'btn';
+        assignBtn.style.cssText = 'padding: 6px 10px; font-size: 12px;';
+        assignBtn.textContent = 'Assign';
+        assignBtn.type = 'button';
+        assignBtn.addEventListener('click', () => assignToMe(item.id));
+        tdAct.append(viewLink, assignBtn);
+
+        tr.append(
+          cell('#' + item.id),
+          cell(item.category),
+          cell(item.area),
+          cell(item.citizen_email),
+          cell(item.created_at, { color: 'var(--muted)' }),
+          tdAct
+        );
         tbody.appendChild(tr);
       });
     } catch (err) {

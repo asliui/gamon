@@ -7,10 +7,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
+use WebGamon\Core\UserAccount;
 use WebGamon\Core\Validator;
 
+Csrf::verify();
 $data = Response::readJsonBody();
 
 $errors = [];
@@ -18,10 +21,8 @@ $errors['name'] = Validator::requiredString($data, 'name', 2, 100);
 $errors['email'] = Validator::email($data, 'email');
 $errors['password'] = Validator::requiredString($data, 'password', 8, 200);
 
-$role = (string)($data['role'] ?? 'citizen');
-if (!in_array($role, ['admin', 'citizen', 'personnel'], true)) {
-    $errors['role'] = 'Invalid role.';
-}
+// Public registration always creates citizens; role changes are admin-only.
+$role = 'citizen';
 
 $errors = array_filter($errors, fn($v) => $v !== null);
 if ($errors) {
@@ -31,6 +32,10 @@ if ($errors) {
 $name = trim((string)$data['name']);
 $email = trim((string)$data['email']);
 $password = (string)$data['password'];
+
+if (UserAccount::isEmailTakenByActiveUser($email)) {
+    Response::json(['ok' => false, 'error' => 'Email already exists'], 409);
+}
 
 $stmt = DB::pdo()->prepare('
   INSERT INTO users (name, email, password_hash, role)

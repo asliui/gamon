@@ -12,15 +12,25 @@ final class Auth
 {
     public static function user(): ?array
     {
-        if (empty($_SESSION['user_id'])) {
+        if (session_status() !== PHP_SESSION_ACTIVE || empty($_SESSION['user_id'])) {
             return null;
         }
 
-        $stmt = DB::pdo()->prepare('SELECT id, email, name, role, created_at FROM users WHERE id = :id');
+        $stmt = DB::pdo()->prepare('
+            SELECT id, email, name, role, created_at
+            FROM users
+            WHERE id = :id AND is_deleted = 0
+        ');
         $stmt->execute([':id' => (int)$_SESSION['user_id']]);
         $user = $stmt->fetch();
 
-        return $user ?: null;
+        if (!$user) {
+            // Clear stale login only — keep session alive for CSRF on public pages.
+            unset($_SESSION['user_id']);
+            return null;
+        }
+
+        return $user;
     }
 
     public static function requireLogin(): array
@@ -43,18 +53,44 @@ final class Auth
 
     public static function login(int $userId): void
     {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        $csrf = isset($_SESSION['csrf_token']) && is_string($_SESSION['csrf_token'])
+            ? $_SESSION['csrf_token']
+            : null;
+
         session_regenerate_id(true);
-        $_SESSION['user_id'] = $userId;
+        $_SESSION = ['user_id' => $userId];
+
+        if ($csrf !== null && $csrf !== '') {
+            $_SESSION['csrf_token'] = $csrf;
+        }
     }
 
     public static function logout(): void
     {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+
         $_SESSION = [];
+
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => $params['path'] ?: '/',
+                'domain' => $params['domain'] ?: '',
+                'secure' => (bool)$params['secure'],
+                'httponly' => (bool)$params['httponly'],
+                'samesite' => $params['samesite'] ?? 'Lax',
+            ]);
         }
+
         session_destroy();
+
+        unset($_SESSION);
     }
 }
-

@@ -53,8 +53,9 @@ require __DIR__ . '/../includes/header.php';
   </div>
 </div>
 
-<script src="<?= e(base_url('assets/js/reports.js')) ?>"></script>
 <script>
+  console.log('CSRF token:', window.CSRF_TOKEN);
+
   function showMsg(text, isError = false) {
     const msgEl = document.getElementById('msg');
     msgEl.style.display = 'block';
@@ -74,14 +75,19 @@ require __DIR__ . '/../includes/header.php';
           return;
       }
 
-      tbody.innerHTML = '';
-      data.items.forEach(item => {
+      tbody.textContent = '';
+      data.items.forEach((item) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
-        tr.innerHTML = `
-          <td style="padding: 12px 8px; color: var(--muted);">#${item.id}</td>
-          <td style="padding: 12px 8px; font-weight: bold;">${item.name}</td>
-        `;
+        const tdId = document.createElement('td');
+        tdId.style.padding = '12px 8px';
+        tdId.style.color = 'var(--muted)';
+        tdId.textContent = '#' + item.id;
+        const tdName = document.createElement('td');
+        tdName.style.padding = '12px 8px';
+        tdName.style.fontWeight = 'bold';
+        tdName.textContent = item.name ?? '';
+        tr.append(tdId, tdName);
         tbody.appendChild(tr);
       });
     } catch (err) {

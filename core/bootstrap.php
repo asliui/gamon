@@ -8,8 +8,12 @@ use WebGamon\Core\DB;
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/DB.php';
 require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Csrf.php';
 require_once __DIR__ . '/Validator.php';
 require_once __DIR__ . '/Response.php';
+require_once __DIR__ . '/Upload.php';
+require_once __DIR__ . '/ImportService.php';
+require_once __DIR__ . '/UserAccount.php';
 
 $config = require __DIR__ . '/../config/config.php';
 

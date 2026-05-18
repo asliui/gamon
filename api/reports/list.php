@@ -12,6 +12,7 @@ require_once __DIR__ . '/../../core/bootstrap.php';
 use WebGamon\Core\Auth;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
+use WebGamon\Core\UserAccount;
 
 $user = Auth::requireLogin();
 
@@ -60,7 +61,8 @@ $sql = "
     r.created_at,
     c.name AS category,
     a.name AS area,
-    u.email AS citizen_email
+    u.email AS citizen_email,
+    u.is_deleted AS citizen_is_deleted
   FROM reports r
   JOIN categories c ON c.id = r.category_id
   JOIN areas a ON a.id = r.area_id
@@ -81,4 +83,10 @@ foreach ($params as $k => $v) {
 }
 $stmt->execute();
 
-Response::json(['ok' => true, 'items' => $stmt->fetchAll()]);
+$items = $stmt->fetchAll();
+foreach ($items as &$item) {
+    UserAccount::maskListCitizenEmail($item);
+}
+unset($item);
+
+Response::json(['ok' => true, 'items' => $items]);

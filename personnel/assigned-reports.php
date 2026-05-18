@@ -43,7 +43,6 @@ require __DIR__ . '/../includes/header.php';
   </div>
 </div>
 
-<script src="<?= e(base_url('assets/js/reports.js')) ?>"></script>
 <script>
   async function updateStatus(reportId, newStatus) {
     try {
@@ -70,40 +69,77 @@ require __DIR__ . '/../includes/header.php';
           return;
       }
 
-      tbody.innerHTML = '';
+      tbody.textContent = '';
 
-      data.items.forEach(item => {
+      data.items.forEach((item) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
 
         let statusColor = 'var(--text)';
-        if(item.status === 'assigned') statusColor = 'var(--accent)';
-        else if(item.status === 'in_progress') statusColor = '#f59e0b'; // warning color
-        else if(item.status === 'resolved') statusColor = 'var(--ok)';
+        if (item.status === 'assigned') statusColor = 'var(--accent)';
+        else if (item.status === 'in_progress') statusColor = '#f59e0b';
+        else if (item.status === 'resolved') statusColor = 'var(--ok)';
 
-        // Dynamic action buttons based on status
-        let actionHtml = '';
+        const tdId = document.createElement('td');
+        tdId.style.padding = '12px 8px';
+        tdId.textContent = '#' + item.id;
+
+        const tdCat = document.createElement('td');
+        tdCat.style.padding = '12px 8px';
+        tdCat.appendChild(document.createTextNode(item.category ?? ''));
+        tdCat.appendChild(document.createElement('br'));
+        const small = document.createElement('small');
+        small.style.color = 'var(--muted)';
+        small.textContent = item.area ?? '';
+        tdCat.appendChild(small);
+
+        const desc = String(item.description ?? '');
+        const tdDesc = document.createElement('td');
+        tdDesc.style.padding = '12px 8px';
+        tdDesc.textContent = desc.length > 50 ? desc.substring(0, 50) + '...' : desc;
+
+        const tdStatus = document.createElement('td');
+        tdStatus.style.padding = '12px 8px';
+        tdStatus.style.color = statusColor;
+        tdStatus.style.fontWeight = 'bold';
+        tdStatus.textContent = String(item.status || '').toUpperCase();
+
+        const tdAct = document.createElement('td');
+        tdAct.style.padding = '12px 8px';
+        tdAct.style.display = 'flex';
+        tdAct.style.alignItems = 'center';
+
+        const viewLink = document.createElement('a');
+        viewLink.href = window.BASE_URL + 'personnel/report-detail.php?id=' + encodeURIComponent(String(item.id));
+        viewLink.className = 'btn';
+        viewLink.style.cssText = 'padding: 6px 10px; font-size: 12px; margin-right: 8px;';
+        viewLink.textContent = 'View';
+        tdAct.appendChild(viewLink);
+
         if (item.status === 'assigned') {
-          actionHtml = `<button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="updateStatus(${item.id}, 'in_progress')">Start Work</button>`;
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          btn.style.cssText = 'padding: 6px 12px; font-size: 12px;';
+          btn.textContent = 'Start Work';
+          btn.type = 'button';
+          btn.addEventListener('click', () => updateStatus(item.id, 'in_progress'));
+          tdAct.appendChild(btn);
         } else if (item.status === 'in_progress') {
-          actionHtml = `<button class="btn" style="padding: 6px 12px; font-size: 12px; background: rgba(54,211,153,0.15); color: var(--ok); border-color: var(--ok);" onclick="updateStatus(${item.id}, 'resolved')">Mark Resolved</button>`;
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          btn.style.cssText = 'padding: 6px 12px; font-size: 12px; background: rgba(54,211,153,0.15); color: var(--ok); border-color: var(--ok);';
+          btn.textContent = 'Mark Resolved';
+          btn.type = 'button';
+          btn.addEventListener('click', () => updateStatus(item.id, 'resolved'));
+          tdAct.appendChild(btn);
         } else if (item.status === 'resolved') {
-          actionHtml = `<span style="color: var(--muted); font-size: 12px;">Completed</span>`;
+          const span = document.createElement('span');
+          span.style.cssText = 'color: var(--muted); font-size: 12px;';
+          span.textContent = 'Completed';
+          tdAct.appendChild(span);
         }
 
-        // View button that always appears
-        let viewBtn = `<a href="${window.BASE_URL}personnel/report-detail.php?id=${item.id}" class="btn" style="padding: 6px 10px; font-size: 12px; margin-right: 8px;">View</a>`;
-
-        let shortDesc = item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description;
-
-        tr.innerHTML = `
-          <td style="padding: 12px 8px;">#${item.id}</td>
-          <td style="padding: 12px 8px;">${item.category}<br><small style="color: var(--muted);">${item.area}</small></td>
-          <td style="padding: 12px 8px;">${shortDesc}</td>
-          <td style="padding: 12px 8px; color: ${statusColor}; font-weight: bold;">${item.status.toUpperCase()}</td>
-          <td style="padding: 12px 8px; display: flex; align-items: center;">${viewBtn} ${actionHtml}</td>
-        `;
-
+        tr.append(tdId, tdCat, tdDesc, tdStatus, tdAct);
         tbody.appendChild(tr);
       });
     } catch (err) {

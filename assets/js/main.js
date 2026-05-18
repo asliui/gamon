@@ -1,31 +1,26 @@
-// main.js
-// Small utilities shared by pages (no frameworks, no bundlers).
-
-function withBaseUrl(url) {
-  const base = String(window.BASE_URL || '/').replace(/\/?$/, '/');
-  if (/^https?:\/\//i.test(url)) return url;
-  const s = String(url);
-  if (s.startsWith(base)) return s;
-  return base + s.replace(/^\/+/, '');
-}
+// main.js — Shared session utilities.
 
 async function getSession() {
-  const res = await fetch(withBaseUrl('api/auth/session.php'), { credentials: 'same-origin' });
+  const url = window.WG ? window.WG.withBaseUrl('api/auth/session.php') : window.BASE_URL + 'api/auth/session.php';
+  const res = await fetch(url, { credentials: 'same-origin' });
   return res.json();
 }
 
 async function apiLogout() {
-  const res = await fetch(withBaseUrl('api/auth/logout.php'), {
+  if (window.WG) {
+    return window.WG.apiPost('api/auth/logout.php', {});
+  }
+  const token = String(window.CSRF_TOKEN || '');
+  const res = await fetch(window.BASE_URL + 'api/auth/logout.php', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': token,
+    },
     body: JSON.stringify({}),
   });
   return res.json();
 }
 
-window.WM = {
-  getSession,
-  apiLogout,
-};
-
+window.WM = { getSession, apiLogout };

@@ -23,5 +23,11 @@ return [
         // Session cookie name.
         'session_name' => 'waste_mgmt_session',
     ],
+    'upload' => [
+        'max_bytes' => 5 * 1024 * 1024, // 5 MB
+    ],
+    'import' => [
+        'max_bytes' => 2 * 1024 * 1024, // 2 MB
+    ],
 ];
 

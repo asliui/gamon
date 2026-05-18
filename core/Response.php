@@ -20,16 +20,6 @@ final class Response
 
     public static function readJsonBody(): array
     {
-        $raw = file_get_contents('php://input');
-        if ($raw === false || trim($raw) === '') {
-            return [];
-        }
-
-        $data = json_decode($raw, true);
-        if (!is_array($data)) {
-            self::json(['ok' => false, 'error' => 'Invalid JSON body'], 400);
-        }
-        return $data;
+        return Csrf::jsonBody();
     }
 }
-

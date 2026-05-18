@@ -68,7 +68,34 @@ final class DB
             throw new \RuntimeException('Missing database/schema.sql');
         }
         self::pdo()->exec($sql);
+        self::patchUsersSoftDelete();
         self::$migrated = true;
+    }
+
+    /** Adds soft-delete columns to existing SQLite databases. */
+    private static function patchUsersSoftDelete(): void
+    {
+        $cols = self::pdo()->query('PRAGMA table_info(users)')->fetchAll();
+        $names = array_column($cols, 'name');
+
+        if (!in_array('is_deleted', $names, true)) {
+            self::pdo()->exec('ALTER TABLE users ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0');
+        }
+        if (!in_array('deleted_at', $names, true)) {
+            self::pdo()->exec('ALTER TABLE users ADD COLUMN deleted_at TEXT NULL');
+        }
+
+        self::pdo()->exec('CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_deleted)');
+
+        // One-time style patch: free emails from already soft-deleted rows (pre-anonymize fix).
+        self::pdo()->exec("
+            UPDATE users
+            SET
+                name = 'Deleted user',
+                email = 'deleted_' || id || '_' || strftime('%s', 'now') || '@deleted.local'
+            WHERE is_deleted = 1
+              AND (email NOT LIKE 'deleted_%@deleted.local' OR email IS NULL)
+        ");
     }
 
     private static function seed(): void

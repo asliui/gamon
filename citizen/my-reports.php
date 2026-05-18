@@ -59,28 +59,42 @@ require __DIR__ . '/../includes/header.php';
           return;
       }
 
-      tbody.innerHTML = '';
+      tbody.textContent = '';
 
-      data.items.forEach(item => {
+      data.items.forEach((item) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
 
         let statusColor = 'var(--text)';
-        if(item.status === 'open') statusColor = 'var(--danger)';
-        else if(item.status === 'resolved') statusColor = 'var(--ok)';
-        else if(item.status === 'in_progress' || item.status === 'assigned') statusColor = 'var(--accent)';
+        if (item.status === 'open') statusColor = 'var(--danger)';
+        else if (item.status === 'resolved') statusColor = 'var(--ok)';
+        else if (item.status === 'in_progress' || item.status === 'assigned') statusColor = 'var(--accent)';
 
-        tr.innerHTML = `
-          <td style="padding: 12px 8px;">#${item.id}</td>
-          <td style="padding: 12px 8px;">${item.category}</td>
-          <td style="padding: 12px 8px;">${item.area}</td>
-          <td style="padding: 12px 8px; color: ${statusColor}; font-weight: bold;">${item.status.toUpperCase()}</td>
-          <td style="padding: 12px 8px; color: var(--muted);">${item.created_at}</td>
-          <td style="padding: 12px 8px;">
-            <a href="${window.BASE_URL}citizen/report-detail.php?id=${item.id}" class="btn" style="padding: 5px 10px; font-size: 12px;">View</a>
-          </td>
-        `;
+        function cell(text, extra) {
+          const td = document.createElement('td');
+          td.style.padding = '12px 8px';
+          if (extra) Object.assign(td.style, extra);
+          td.textContent = text ?? '';
+          return td;
+        }
 
+        const tdAct = document.createElement('td');
+        tdAct.style.padding = '12px 8px';
+        const link = document.createElement('a');
+        link.href = window.BASE_URL + 'citizen/report-detail.php?id=' + encodeURIComponent(String(item.id));
+        link.className = 'btn';
+        link.style.cssText = 'padding: 5px 10px; font-size: 12px;';
+        link.textContent = 'View';
+        tdAct.appendChild(link);
+
+        tr.append(
+          cell('#' + item.id),
+          cell(item.category),
+          cell(item.area),
+          cell(String(item.status || '').toUpperCase(), { color: statusColor, fontWeight: 'bold' }),
+          cell(item.created_at, { color: 'var(--muted)' }),
+          tdAct
+        );
         tbody.appendChild(tr);
       });
     } catch (err) {

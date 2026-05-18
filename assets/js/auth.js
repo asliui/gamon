@@ -1,29 +1,38 @@
-// auth.js
-// Handles login/register forms using the JSON API.
+// auth.js — Login/register via JSON API (uses api.js on public pages).
+
+function withBaseUrl(url) {
+  return window.WG ? window.WG.withBaseUrl(url) : (function () {
+    const base = String(window.BASE_URL || '/').replace(/\/?$/, '/');
+    return base + String(url).replace(/^\/+/, '');
+  })();
+}
+
+function csrfToken() {
+  if (window.WG) return window.WG.csrfToken();
+  if (window.CSRF_TOKEN) return String(window.CSRF_TOKEN);
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? String(meta.getAttribute('content') || '') : '';
+}
 
 async function apiPost(url, payload) {
-  const fullUrl = withBaseUrl(url);
-  const res = await fetch(fullUrl, {
+  const token = csrfToken();
+  if (!token) {
+    throw { message: 'Security token missing. Please refresh the page and try again.' };
+  }
+  const res = await fetch(withBaseUrl(url), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
-    body: JSON.stringify(payload),
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': token,
+    },
+    body: JSON.stringify(payload || {}),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = data?.error || `Request failed (${res.status})`;
-    throw { status: res.status, data, message: err };
+    throw { message: data?.error || `Request failed (${res.status})` };
   }
   return data;
-}
-
-function withBaseUrl(url) {
-  const base = String(window.BASE_URL || '/').replace(/\/?$/, '/');
-  if (/^https?:\/\//i.test(url)) return url;
-  const s = String(url);
-  if (s.startsWith(base)) return s;
-  const clean = s.replace(/^\/+/, '');
-  return base + clean;
 }
 
 function showMsg(el, text, ok = false) {
@@ -39,14 +48,11 @@ if (loginForm) {
     e.preventDefault();
     const msg = document.getElementById('msg');
     msg && (msg.style.display = 'none');
-
-    const payload = {
-      email: loginForm.email.value,
-      password: loginForm.password.value,
-    };
-
     try {
-      await apiPost('api/auth/login.php', payload);
+      await apiPost('api/auth/login.php', {
+        email: loginForm.email.value,
+        password: loginForm.password.value,
+      });
       window.location.href = withBaseUrl('dashboard.php');
     } catch (err) {
       showMsg(msg, err.message || 'Login failed');
@@ -60,20 +66,15 @@ if (registerForm) {
     e.preventDefault();
     const msg = document.getElementById('msg');
     msg && (msg.style.display = 'none');
-
-    const payload = {
-      name: registerForm.name.value,
-      email: registerForm.email.value,
-      role: registerForm.role.value,
-      password: registerForm.password.value,
-    };
-
     try {
-      await apiPost('api/auth/register.php', payload);
+      await apiPost('api/auth/register.php', {
+        name: registerForm.name.value,
+        email: registerForm.email.value,
+        password: registerForm.password.value,
+      });
       window.location.href = withBaseUrl('dashboard.php');
     } catch (err) {
       showMsg(msg, err.message || 'Registration failed');
     }
   });
 }
-

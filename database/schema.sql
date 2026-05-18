@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'citizen', 'personnel')),
+  is_deleted INTEGER NOT NULL DEFAULT 0,
+  deleted_at TEXT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

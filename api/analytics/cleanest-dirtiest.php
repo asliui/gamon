@@ -2,8 +2,7 @@
 
 declare(strict_types=1);
 
-// api/analytics/cleanest-dirtiest.php
-// Minimal: top/bottom areas by open reports.
+// api/analytics/cleanest-dirtiest.php — Top/bottom areas by non-resolved report count.
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 

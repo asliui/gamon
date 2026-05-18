@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // citizen/report-detail.php
-// View accessible by Citizen, Personnel, and Admin.
+// Citizen-only report detail view.
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
@@ -15,7 +15,6 @@ if ($user['role'] !== 'citizen') {
     redirect(base_url('dashboard.php'));
 }
 
-// REMOVED: Strict citizen check. API handles specific data access.
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $title = 'Report Details';
 require __DIR__ . '/../includes/header.php';
@@ -69,7 +68,7 @@ require __DIR__ . '/../includes/header.php';
     // Ensure the ID is a valid number from the URL query string
     const reportId = <?= (int)$id ?>;
     if (reportId <= 0) {
-        document.getElementById('loading').innerHTML = '<div class="alert">Invalid Report ID.</div>';
+        DomSafe.setAlert(document.getElementById('loading'), 'Invalid Report ID.');
         return;
     }
 
@@ -78,7 +77,7 @@ require __DIR__ . '/../includes/header.php';
       const data = await res.json();
 
       if (!data.ok) {
-        document.getElementById('loading').innerHTML = `<div class="alert">${data.error || 'Access denied'}</div>`;
+        DomSafe.setAlert(document.getElementById('loading'), data.error || 'Access denied');
         return;
       }
 

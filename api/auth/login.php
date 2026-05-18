@@ -7,10 +7,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
 use WebGamon\Core\Validator;
 
+Csrf::verify();
 $data = Response::readJsonBody();
 
 $errors = [];
@@ -25,11 +27,20 @@ if ($errors) {
 $email = trim((string)$data['email']);
 $password = (string)$data['password'];
 
-$stmt = DB::pdo()->prepare('SELECT id, password_hash FROM users WHERE email = :email');
+$stmt = DB::pdo()->prepare('
+    SELECT id, password_hash
+    FROM users
+    WHERE email = :email AND is_deleted = 0
+    LIMIT 1
+');
 $stmt->execute([':email' => $email]);
 $row = $stmt->fetch();
 
-if (!$row || !password_verify($password, (string)$row['password_hash'])) {
+if (!$row) {
+    Response::json(['ok' => false, 'error' => 'Invalid credentials'], 401);
+}
+
+if (!password_verify($password, (string)$row['password_hash'])) {
     Response::json(['ok' => false, 'error' => 'Invalid credentials'], 401);
 }
 

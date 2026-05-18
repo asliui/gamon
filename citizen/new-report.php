@@ -11,6 +11,9 @@ $user = \WebGamon\Core\Auth::user();
 if (!$user) {
     redirect(base_url('login.php'));
 }
+if ($user['role'] !== 'citizen') {
+    redirect(base_url('dashboard.php'));
+}
 
 $title = 'New Report';
 require __DIR__ . '/../includes/header.php';
@@ -49,7 +52,6 @@ require __DIR__ . '/../includes/header.php';
   </form>
 </div>
 
-<script src="<?= e(base_url('assets/js/reports.js')) ?>"></script>
 <script>
   function showMsg(text, ok) {
     const el = document.getElementById('msg');
@@ -82,11 +84,18 @@ require __DIR__ . '/../includes/header.php';
     // FormData automatically packages all form inputs, including the file
     const formData = new FormData(form);
 
+    const token = window.WG ? window.WG.csrfToken() : (window.CSRF_TOKEN || '');
+    if (!token) {
+      showMsg('Security token missing. Please refresh the page.', false);
+      return;
+    }
+
     try {
       const res = await fetch(window.BASE_URL + 'api/reports/create.php', {
         method: 'POST',
-        body: formData, // Sending multipart/form-data directly
-        credentials: 'same-origin'
+        body: formData,
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-Token': token },
       });
       
       const data = await res.json();

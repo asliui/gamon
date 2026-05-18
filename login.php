@@ -24,6 +24,7 @@ require __DIR__ . '/includes/header.php';
   <div class="spacer"></div>
 
   <form id="loginForm">
+    <input type="hidden" data-csrf-token="<?= e(\WebGamon\Core\Csrf::token()) ?>" />
     <div class="field">
       <label for="email">Email</label>
       <input id="email" name="email" type="email" autocomplete="email" required />
@@ -40,6 +41,24 @@ require __DIR__ . '/includes/header.php';
   </form>
 </div>
 
-<script src="<?= e(base_url('assets/js/auth.js')) ?>"></script>
+<?php
+$authJsFile = __DIR__ . '/assets/js/auth.js';
+$authJsVersion = file_exists($authJsFile) ? (string)filemtime($authJsFile) : '1';
+?>
+<script src="<?= e(base_url('assets/js/auth.js')) ?>?v=<?= e($authJsVersion) ?>"></script>
+<script>
+  console.log('CSRF token:', window.CSRF_TOKEN);
+</script>
+<?php if (isset($_GET['account_deleted'])): ?>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const msg = document.getElementById('msg');
+    if (!msg) return;
+    msg.style.display = 'block';
+    msg.classList.add('ok');
+    msg.textContent = 'Your account has been deleted. Please log in with another account.';
+  });
+</script>
+<?php endif; ?>
 <?php require __DIR__ . '/includes/footer.php'; ?>
 

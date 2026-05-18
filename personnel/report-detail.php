@@ -66,7 +66,6 @@ require __DIR__ . '/../includes/header.php';
   </div>
 </div>
 
-<script src="<?= e(base_url('assets/js/reports.js')) ?>"></script>
 <script>
   (async () => {
     const reportId = <?= (int)$id ?>;
@@ -88,7 +87,7 @@ require __DIR__ . '/../includes/header.php';
       const data = await res.json();
 
       if (!data.ok) {
-        document.getElementById('loading').innerHTML = '<div class="alert">Task not found.</div>';
+        DomSafe.setAlert(document.getElementById('loading'), 'Task not found.');
         return;
       }
 

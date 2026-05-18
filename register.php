@@ -24,6 +24,7 @@ require __DIR__ . '/includes/header.php';
   <div class="spacer"></div>
 
   <form id="registerForm">
+    <input type="hidden" data-csrf-token="<?= e(\WebGamon\Core\Csrf::token()) ?>" />
     <div class="field">
       <label for="name">Name</label>
       <input id="name" name="name" autocomplete="name" required />
@@ -32,14 +33,7 @@ require __DIR__ . '/includes/header.php';
       <label for="email">Email</label>
       <input id="email" name="email" type="email" autocomplete="email" required />
     </div>
-    <div class="field">
-      <label for="role">Role</label>
-      <select id="role" name="role" required>
-        <option value="citizen">Citizen</option>
-        <option value="personnel">Personnel</option>
-        <option value="admin">Admin</option>
-      </select>
-    </div>
+    <p class="hint">New accounts are registered as <strong>citizens</strong>. Admins can change roles later.</p>
     <div class="field">
       <label for="password">Password</label>
       <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
@@ -52,6 +46,10 @@ require __DIR__ . '/includes/header.php';
   </form>
 </div>
 
-<script src="<?= e(base_url('assets/js/auth.js')) ?>"></script>
+<?php
+$authJsFile = __DIR__ . '/assets/js/auth.js';
+$authJsVersion = file_exists($authJsFile) ? (string)filemtime($authJsFile) : '1';
+?>
+<script src="<?= e(base_url('assets/js/auth.js')) ?>?v=<?= e($authJsVersion) ?>"></script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
 

@@ -2,17 +2,18 @@
 
 declare(strict_types=1);
 
-// api/reports/update-status.php
-// Placeholder: update report status (personnel/admin).
+// api/reports/update-status.php — Update report status (personnel/admin).
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
 use WebGamon\Core\Auth;
+use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
 use WebGamon\Core\Validator;
 
 $user = Auth::requireRole('admin', 'personnel');
+Csrf::verify();
 $data = Response::readJsonBody();
 
 $errors = [];
