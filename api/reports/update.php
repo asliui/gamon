@@ -6,14 +6,17 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
+use WebGamon\Core\ReportPriority;
 use WebGamon\Core\ReportStatus;
 use WebGamon\Core\Response;
+use WebGamon\Core\SLA;
 use WebGamon\Core\Validator;
 
-Auth::requireRole('admin');
+$admin = Auth::requireRole('admin');
 Csrf::verify();
 $data = Response::readJsonBody();
 
@@ -26,7 +29,10 @@ if ($errors) {
 
 $reportId = (int)$data['report_id'];
 
-$stmt = DB::pdo()->prepare('SELECT id, status, is_deleted FROM reports WHERE id = :id');
+$stmt = DB::pdo()->prepare('
+  SELECT id, status, priority, description, category_id, area_id, created_at, is_deleted
+  FROM reports WHERE id = :id
+');
 $stmt->execute([':id' => $reportId]);
 $report = $stmt->fetch();
 if (!$report || (int)($report['is_deleted'] ?? 0) === 1) {
@@ -34,6 +40,7 @@ if (!$report || (int)($report['is_deleted'] ?? 0) === 1) {
 }
 
 $currentStatus = (string)$report['status'];
+$currentPriority = (string)($report['priority'] ?? 'medium');
 $updates = [];
 $params = [':id' => $reportId];
 
@@ -87,6 +94,31 @@ if (isset($data['status'])) {
     $params[':status'] = $newStatus;
 }
 
+$newPriorityValue = null;
+if (isset($data['priority'])) {
+    $priority = ReportPriority::normalize($data['priority'], ReportPriority::DEFAULT);
+    if ($priority === null) {
+        Response::json(['ok' => false, 'error' => 'Validation failed', 'fields' => ['priority' => 'Invalid value.']], 422);
+    }
+    $newPriorityValue = $priority;
+    $updates[] = 'priority = :priority';
+    $params[':priority'] = $priority;
+
+    if ($priority !== $currentPriority && SLA::shouldRecalculateDueOnPriorityChange($currentStatus)) {
+        $updates[] = 'due_at = :due_at';
+        $params[':due_at'] = SLA::calculateDueAt($priority, (string)$report['created_at']);
+    }
+}
+
+if (isset($data['status'])) {
+    $newStatusForSla = (string)$data['status'];
+    if ($newStatusForSla === 'resolved' && $currentStatus !== 'resolved') {
+        $updates[] = "resolved_at = datetime('now')";
+    } elseif ($newStatusForSla !== 'resolved' && $currentStatus === 'resolved') {
+        $updates[] = 'resolved_at = NULL';
+    }
+}
+
 if (!$updates) {
     Response::json(['ok' => false, 'error' => 'No fields to update'], 400);
 }
@@ -94,5 +126,41 @@ if (!$updates) {
 $updates[] = "updated_at = datetime('now')";
 $sql = 'UPDATE reports SET ' . implode(', ', $updates) . ' WHERE id = :id';
 DB::pdo()->prepare($sql)->execute($params);
+
+$actorId = (int)$admin['id'];
+
+if (isset($data['status'])) {
+    $newStatus = (string)$data['status'];
+    if ($newStatus !== $currentStatus) {
+        ActivityLog::write($actorId, 'report_status_changed', 'report', $reportId, [
+            'old_status' => $currentStatus,
+            'new_status' => $newStatus,
+        ]);
+    }
+}
+
+if (isset($data['priority'])) {
+    $newPriority = ReportPriority::normalize($data['priority'], ReportPriority::DEFAULT);
+    if ($newPriority !== null && $newPriority !== $currentPriority) {
+        ActivityLog::write($actorId, 'report_priority_changed', 'report', $reportId, [
+            'old_priority' => $currentPriority,
+            'new_priority' => $newPriority,
+        ]);
+    }
+}
+
+$otherChanges = [];
+if (isset($data['description']) && trim((string)$data['description']) !== (string)$report['description']) {
+    $otherChanges['description'] = true;
+}
+if (isset($data['category_id']) && (int)$data['category_id'] !== (int)$report['category_id']) {
+    $otherChanges['category_id'] = (int)$data['category_id'];
+}
+if (isset($data['area_id']) && (int)$data['area_id'] !== (int)$report['area_id']) {
+    $otherChanges['area_id'] = (int)$data['area_id'];
+}
+if ($otherChanges !== []) {
+    ActivityLog::write($actorId, 'report_updated', 'report', $reportId, $otherChanges);
+}
 
 Response::json(['ok' => true]);

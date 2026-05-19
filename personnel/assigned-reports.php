@@ -17,8 +17,8 @@ require __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="panel">
-  <h1>Atanan Görevlerim</h1>
-  <p>Size atanmış raporlar. Genel rapor durumu ile çalışma ilerlemenizi (assignment progress) ayrı güncelleyebilirsiniz.</p>
+  <h1>My Assigned Tasks</h1>
+  <p>Reports assigned to you. You can update assignment progress separately from the overall report status.</p>
   <div class="spacer"></div>
 
   <div style="overflow-x: auto;">
@@ -26,15 +26,17 @@ require __DIR__ . '/../includes/header.php';
       <thead>
         <tr>
           <th>ID</th>
-          <th>Kategori / Bölge</th>
-          <th>Açıklama</th>
-          <th>Rapor Durumu</th>
-          <th>Çalışma Durumu</th>
-          <th>İşlemler</th>
+          <th>Category / Area</th>
+          <th>Priority</th>
+          <th>SLA</th>
+          <th>Description</th>
+          <th>Report Status</th>
+          <th>Work Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="assignedBody">
-        <tr><td colspan="6">Yükleniyor...</td></tr>
+        <tr><td colspan="8">Loading…</td></tr>
       </tbody>
     </table>
   </div>
@@ -42,9 +44,9 @@ require __DIR__ . '/../includes/header.php';
 
 <script>
   const PROGRESS_LABELS = {
-    not_started: 'Yapılmadı',
-    in_progress: 'Yapılıyor',
-    completed: 'Yapıldı',
+    not_started: 'Not started',
+    in_progress: 'In progress',
+    completed: 'Completed',
   };
 
   function notify(msg, ok) {
@@ -61,10 +63,10 @@ require __DIR__ . '/../includes/header.php';
         report_id: reportId,
         status: newStatus,
       });
-      notify('Rapor durumu güncellendi.', true);
+      notify('Report status updated.', true);
       loadAssigned();
     } catch (err) {
-      notify(err.message || 'Durum güncellenemedi.', false);
+      notify(err.message || 'Could not update status.', false);
     }
   }
 
@@ -76,10 +78,10 @@ require __DIR__ . '/../includes/header.php';
         progress_status: progressStatus,
         progress_note: progressNote,
       });
-      notify('Çalışma durumu güncellendi.', true);
+      notify('Work progress updated.', true);
       loadAssigned();
     } catch (err) {
-      notify(err.message || 'İlerleme güncellenemedi.', false);
+      notify(err.message || 'Could not update progress.', false);
     } finally {
       if (btn) btn.classList.remove('btn-loading');
     }
@@ -95,7 +97,7 @@ require __DIR__ . '/../includes/header.php';
     wrap.style.background = 'rgba(0,0,0,0.15)';
 
     const selLabel = document.createElement('label');
-    selLabel.textContent = 'Çalışma durumu';
+    selLabel.textContent = 'Work status';
     selLabel.style.display = 'block';
     selLabel.style.fontSize = '12px';
     selLabel.style.color = 'var(--muted)';
@@ -115,7 +117,7 @@ require __DIR__ . '/../includes/header.php';
     });
 
     const noteLabel = document.createElement('label');
-    noteLabel.textContent = 'Açıklama / not';
+    noteLabel.textContent = 'Note';
     noteLabel.style.display = 'block';
     noteLabel.style.fontSize = '12px';
     noteLabel.style.color = 'var(--muted)';
@@ -125,14 +127,14 @@ require __DIR__ . '/../includes/header.php';
     note.rows = 2;
     note.style.width = '100%';
     note.style.marginBottom = '8px';
-    note.placeholder = 'Örn. Ekip olay yerine ulaştı...';
+    note.placeholder = 'e.g. Team arrived on site…';
     note.value = item.assignment_progress_note || '';
 
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-sm';
     btn.style.background = 'var(--accent)';
-    btn.textContent = 'Progress Güncelle';
+    btn.textContent = 'Update progress';
     btn.addEventListener('click', () => {
       updateAssignmentProgress(item.id, sel.value, note.value.trim(), btn);
     });
@@ -143,11 +145,11 @@ require __DIR__ . '/../includes/header.php';
 
   async function loadAssigned() {
     const tbody = document.getElementById('assignedBody');
-    tbody.innerHTML = '<tr><td colspan="6">Yükleniyor...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8">Loading…</td></tr>';
     try {
-      const data = await window.WG.apiGet('api/reports/list.php?assigned_to=me&limit=100');
+      const data = await window.WG.apiGet('api/reports/list.php?assigned_to=me&per_page=50');
       if (!data.items || data.items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="muted-cell">Atanmış görev yok. Açık raporlardan görev alın.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="muted-cell">No assigned tasks. Pick up tasks from open reports.</td></tr>';
         return;
       }
 
@@ -168,6 +170,12 @@ require __DIR__ . '/../includes/header.php';
         small.textContent = item.area || '';
         tdCat.appendChild(small);
 
+        const tdPri = document.createElement('td');
+        tdPri.appendChild(window.Priority.createBadge(item.priority || 'medium'));
+
+        const tdSla = document.createElement('td');
+        if (window.SLA) tdSla.appendChild(window.SLA.createBadge(item));
+
         const desc = String(item.description || '');
         const tdDesc = document.createElement('td');
         tdDesc.textContent = desc.length > 60 ? desc.substring(0, 60) + '...' : desc;
@@ -186,7 +194,7 @@ require __DIR__ . '/../includes/header.php';
           const upd = document.createElement('small');
           upd.style.display = 'block';
           upd.style.color = 'var(--muted)';
-          upd.textContent = 'Son: ' + item.assignment_progress_updated_at;
+          upd.textContent = 'Updated: ' + item.assignment_progress_updated_at;
           tdProgress.appendChild(upd);
         }
         if (item.assignment_progress_note) {
@@ -203,7 +211,7 @@ require __DIR__ . '/../includes/header.php';
         const viewLink = document.createElement('a');
         viewLink.href = window.BASE_URL + 'personnel/report-detail.php?id=' + encodeURIComponent(String(item.id));
         viewLink.className = 'btn btn-sm';
-        viewLink.textContent = 'Detay';
+        viewLink.textContent = 'View';
         viewLink.style.marginBottom = '8px';
         viewLink.style.display = 'inline-block';
         tdAct.appendChild(viewLink);
@@ -212,7 +220,7 @@ require __DIR__ . '/../includes/header.php';
           const b = document.createElement('button');
           b.type = 'button';
           b.className = 'btn btn-sm';
-          b.textContent = 'İşe Başla (rapor)';
+          b.textContent = 'Start work (report)';
           b.style.marginLeft = '6px';
           b.addEventListener('click', () => updateReportStatus(item.id, 'in_progress'));
           tdAct.appendChild(b);
@@ -220,7 +228,7 @@ require __DIR__ . '/../includes/header.php';
           const b = document.createElement('button');
           b.type = 'button';
           b.className = 'btn btn-sm';
-          b.textContent = 'Çözüldü (rapor)';
+          b.textContent = 'Mark resolved (report)';
           b.style.marginLeft = '6px';
           b.addEventListener('click', () => updateReportStatus(item.id, 'resolved'));
           tdAct.appendChild(b);
@@ -228,11 +236,11 @@ require __DIR__ . '/../includes/header.php';
 
         tdAct.appendChild(buildProgressForm(item));
 
-        tr.append(tdId, tdCat, tdDesc, tdStatus, tdProgress, tdAct);
+        tr.append(tdId, tdCat, tdPri, tdSla, tdDesc, tdStatus, tdProgress, tdAct);
         tbody.appendChild(tr);
       });
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="6" class="danger-cell">Veri yüklenemedi.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="danger-cell">Failed to load data.</td></tr>';
     }
   }
 

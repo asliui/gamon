@@ -6,13 +6,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
 use WebGamon\Core\Validator;
 
-Auth::requireRole('admin');
+$admin = Auth::requireRole('admin');
 Csrf::verify();
 $data = Response::readJsonBody();
 
@@ -35,5 +36,7 @@ $stmt->execute([':id' => $reportId]);
 if ($stmt->rowCount() === 0) {
     Response::json(['ok' => false, 'error' => 'Report not found or already deleted'], 404);
 }
+
+ActivityLog::write((int)$admin['id'], 'report_deleted', 'report', $reportId, []);
 
 Response::json(['ok' => true]);

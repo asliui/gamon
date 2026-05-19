@@ -32,13 +32,15 @@ require __DIR__ . '/../includes/header.php';
           <th style="padding: 12px 8px;">ID</th>
           <th style="padding: 12px 8px;">Category</th>
           <th style="padding: 12px 8px;">Area</th>
+          <th style="padding: 12px 8px;">Priority</th>
+          <th style="padding: 12px 8px;">SLA</th>
           <th style="padding: 12px 8px;">Reported By</th>
           <th style="padding: 12px 8px;">Date</th>
           <th style="padding: 12px 8px;">Action</th>
         </tr>
       </thead>
       <tbody id="openReportsBody">
-        <tr><td colspan="6" style="padding: 12px 8px;">Loading...</td></tr>
+        <tr><td colspan="8" style="padding: 12px 8px;">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -65,11 +67,11 @@ require __DIR__ . '/../includes/header.php';
   (async () => {
     const tbody = document.getElementById('openReportsBody');
     try {
-      const res = await fetch(window.BASE_URL + 'api/reports/list.php?status=open&limit=100', { credentials: 'same-origin' });
+      const res = await fetch(window.BASE_URL + 'api/reports/list.php?status=open&per_page=50', { credentials: 'same-origin' });
       const data = await res.json();
 
       if (!data.ok || !data.items || data.items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="padding: 12px 8px; color: var(--ok);">Great job! There are no open reports at the moment.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="padding: 12px 8px; color: var(--ok);">Great job! There are no open reports at the moment.</td></tr>';
           return;
       }
 
@@ -102,10 +104,20 @@ require __DIR__ . '/../includes/header.php';
         assignBtn.addEventListener('click', () => assignToMe(item.id));
         tdAct.append(viewLink, assignBtn);
 
+        const tdPri = document.createElement('td');
+        tdPri.style.padding = '12px 8px';
+        tdPri.appendChild(window.Priority.createBadge(item.priority || 'medium'));
+
+        const tdSla = document.createElement('td');
+        tdSla.style.padding = '12px 8px';
+        if (window.SLA) tdSla.appendChild(window.SLA.createBadge(item));
+
         tr.append(
           cell('#' + item.id),
           cell(item.category),
           cell(item.area),
+          tdPri,
+          tdSla,
           cell(item.citizen_email),
           cell(item.created_at, { color: 'var(--muted)' }),
           tdAct
@@ -113,7 +125,7 @@ require __DIR__ . '/../includes/header.php';
         tbody.appendChild(tr);
       });
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="6" style="padding: 12px 8px; color: var(--danger);">Failed to load data.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="padding: 12px 8px; color: var(--danger);">Failed to load data.</td></tr>';
     }
   })();
 </script>

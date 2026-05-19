@@ -7,13 +7,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
 use WebGamon\Core\Validator;
 
-Auth::requireRole('admin');
+$admin = Auth::requireRole('admin');
 Csrf::verify();
 $data = Response::readJsonBody();
 
@@ -30,7 +31,9 @@ $name = trim((string)$data['name']);
 try {
     $stmt = DB::pdo()->prepare('INSERT INTO categories (name) VALUES (:name)');
     $stmt->execute([':name' => $name]);
-    Response::json(['ok' => true, 'id' => (int)DB::pdo()->lastInsertId()]);
+    $id = (int)DB::pdo()->lastInsertId();
+    ActivityLog::write((int)$admin['id'], 'category_created', 'category', $id, ['name' => $name]);
+    Response::json(['ok' => true, 'id' => $id]);
 } catch (\Throwable $e) {
     // If the category name already exists (UNIQUE constraint in schema)
     Response::json(['ok' => false, 'error' => 'A category with this name already exists.'], 409);

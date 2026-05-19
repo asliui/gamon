@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
@@ -34,6 +35,14 @@ if ($targetUserId === (int)$currentUser['id'] && $newRole !== 'admin') {
     Response::json(['ok' => false, 'error' => 'You cannot change your own admin role.'], 403);
 }
 
+$oldStmt = DB::pdo()->prepare('SELECT role FROM users WHERE id = :id AND is_deleted = 0');
+$oldStmt->execute([':id' => $targetUserId]);
+$oldUser = $oldStmt->fetch();
+if (!$oldUser) {
+    Response::json(['ok' => false, 'error' => 'User not found'], 404);
+}
+$oldRole = (string)$oldUser['role'];
+
 $stmt = DB::pdo()->prepare('UPDATE users SET role = :role WHERE id = :id AND is_deleted = 0');
 $stmt->execute([
     ':role' => $newRole,
@@ -42,6 +51,13 @@ $stmt->execute([
 
 if ($stmt->rowCount() === 0) {
     Response::json(['ok' => false, 'error' => 'User not found'], 404);
+}
+
+if ($oldRole !== $newRole) {
+    ActivityLog::write((int)$currentUser['id'], 'user_role_changed', 'user', $targetUserId, [
+        'old_role' => $oldRole,
+        'new_role' => $newRole,
+    ]);
 }
 
 Response::json(['ok' => true]);

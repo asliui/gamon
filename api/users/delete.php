@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
@@ -51,6 +52,11 @@ if ($isSelf) {
 if (!UserAccount::softDelete($targetId)) {
     Response::json(['ok' => false, 'error' => 'User could not be deleted'], 409);
 }
+
+ActivityLog::write((int)$currentUser['id'], 'user_soft_deleted', 'user', $targetId, [
+    'email' => (string)$target['email'],
+    'role' => (string)$target['role'],
+]);
 
 if ($isSelf) {
     Auth::logout();

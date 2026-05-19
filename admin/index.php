@@ -27,6 +27,7 @@ require __DIR__ . '/../includes/header.php';
     <a class="btn" href="<?= e(base_url('admin/areas.php')) ?>">Areas</a>
     <a class="btn" href="<?= e(base_url('admin/reports.php')) ?>">All Reports</a>
     <a class="btn" href="<?= e(base_url('admin/analytics.php')) ?>">Full Analytics</a>
+    <a class="btn" href="<?= e(base_url('admin/activity-log.php')) ?>">Activity Log</a>
     <a class="btn" href="<?= e(base_url('admin/import.php')) ?>">Import Data</a>
   </div>
 

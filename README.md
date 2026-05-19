@@ -16,9 +16,9 @@ Framework-free **API-first** web application for reporting waste accumulation, a
 
 ## Features
 
-- **Citizens:** create reports (with optional photo), track own reports
+- **Citizens:** create reports with priority (low / medium / high / critical), optional photo, track own reports
 - **Personnel:** view open tasks, self-assign, update assigned task status
-- **Admins:** user/role management, categories & areas CRUD, report edit/soft-delete, personnel assignment, analytics, CSV/JSON import & export
+- **Admins:** user/role management, categories & areas CRUD, report edit/soft-delete, personnel assignment, analytics, activity log, SLA filters, CSV/JSON import & export
 - **Security:** CSRF (`X-CSRF-Token`), XSS escaping, prepared statements, upload validation, session hardening
 
 ## Folder structure
@@ -121,15 +121,16 @@ Standard JSON response:
 
 | Method | Endpoint | Role |
 |--------|----------|------|
-| GET | `api/reports/list.php` | Logged in |
+| GET | `api/reports/list.php` | Logged in (filters below) |
 | GET | `api/reports/detail.php` | Logged in |
-| POST | `api/reports/create.php` | citizen (+) |
+| POST | `api/reports/create.php` | citizen (+) — optional `priority` |
 | POST | `api/reports/assign.php` | admin, personnel |
 | POST | `api/reports/update-status.php` | admin, personnel |
 | POST | `api/reports/update-assignment-progress.php` | personnel (own assignments) |
-| POST | `api/reports/update.php` | admin |
+| POST | `api/reports/update.php` | admin — includes `priority` |
 | POST | `api/reports/delete.php` | admin (soft) |
 | GET | `api/reports/assignment-history.php` | admin |
+| GET | `api/reports/timeline.php` | Logged in (report access) |
 
 ### Categories & areas
 
@@ -139,6 +140,15 @@ Standard JSON response:
 | GET | `api/categories/list.php` | public |
 
 (Same pattern for `api/areas/*`.)
+
+### Analytics
+
+| Method | Endpoint | Role |
+|--------|----------|------|
+| GET | `api/analytics/summary.php` | admin |
+| GET | `api/analytics/distribution.php` | admin |
+| GET | `api/analytics/by-area.php`, `by-category.php`, `cleanest-dirtiest.php` | admin |
+| GET | `api/admin/activity-log.php` | admin |
 
 ### Import / export
 
@@ -157,15 +167,82 @@ Admin UI: **Admin → Import Data**.
 - **Authorization:** `Auth::requireRole()` on APIs; page-level role redirects
 - **Soft delete:** users and reports; deleted users masked in listings
 
+## Report priority
+
+Each report has a **priority** (separate from workflow **status**):
+
+| Value | Default | UI |
+|-------|---------|-----|
+| `low` | | green badge |
+| `medium` | yes | blue badge |
+| `high` | | amber badge |
+| `critical` | | red badge |
+
+- Citizens choose priority on **New report**.
+- Admins view and edit priority on **Report detail** and see badges on **Reports** list.
+- Personnel see priority badges on **Open reports** and **Assigned tasks**.
+
+Invalid priority on create/update returns HTTP **422**.
+
+## Report list filters (admin & API)
+
+`GET api/reports/list.php` supports query parameters (all optional, combined with AND):
+
+| Parameter | Description |
+|-----------|-------------|
+| `status` | `open`, `assigned`, `in_progress`, `resolved`, `rejected` |
+| `category_id` | Category id |
+| `area_id` | Area id |
+| `priority` | `low`, `medium`, `high`, `critical` |
+| `q` | Search in description or report id (LIKE, wildcards stripped) |
+| `sla_status` | **Admin only:** `overdue`, `due_soon`, `on_time`, `resolved_late` |
+| `page` | Page number (min 1, default 1) |
+| `per_page` | Rows per page (min 5, max 50, default 10) |
+| `limit` | Legacy alias for `per_page` when `per_page` is omitted (capped at 50) |
+| `assigned_to=me` | Personnel/admin: only reports assigned to current user |
+
+**Role scope** (unchanged):
+
+- **citizen** — own reports only
+- **personnel** — open reports OR reports assigned to them (unless `assigned_to=me`)
+- **admin** — all non-deleted reports
+
+Admin UI: **Admin → Reports** filter bar uses fetch; **Apply filters** / **Reset filters**.
+
+## Report list pagination
+
+`GET api/reports/list.php` returns pagination metadata (backward compatible — `items` unchanged):
+
+```json
+{
+  "ok": true,
+  "items": [],
+  "page": 1,
+  "per_page": 10,
+  "total": 42,
+  "total_pages": 5
+}
+```
+
+- `total` — count after filters + role scope (excludes soft-deleted reports)
+- `total_pages` — `ceil(total / per_page)`, or `0` when `total` is 0
+- `LIMIT` / `OFFSET` use integer-bound parameters (no SQL injection)
+
+**Defaults:** `page=1`, `per_page=10`. **Bounds:** `per_page` 5–50.
+
+**Admin UI:** pagination bar on **Admin → Reports** (Previous/Next, page label, per-page 10/20/50). Filters reset to page 1.
+
+**Citizen / personnel pages** call `per_page=50` so existing “show all” behaviour is preserved without adding pagination UI yet.
+
 ## Personnel assignment progress
 
 Separate from **report status**, each assignment has its own progress:
 
 | `progress_status` | UI label |
 |-------------------|----------|
-| `not_started` | Yapılmadı |
-| `in_progress` | Yapılıyor |
-| `completed` | Yapıldı |
+| `not_started` | Not started |
+| `in_progress` | In progress |
+| `completed` | Completed |
 
 Personnel update via **Assigned Tasks** or `POST api/reports/update-assignment-progress.php` (optional `progress_note`). Admins see progress on report detail (read-only).
 
@@ -180,28 +257,147 @@ Personnel update via **Assigned Tasks** or `POST api/reports/update-assignment-p
 
 Invalid transitions return HTTP **409**.
 
-## Presentation flow (demo script)
+## Admin analytics charts
 
-1. **Login as admin** (`asliuzar4@gmail.com` / `Demo123!`)
-2. **Admin Dashboard** — show KPIs (seeded reports)
-3. **Analytics** — charts / cleanest-dirtiest areas
-4. **Categories / Areas** — create or edit inline
-5. **Reports** → open report detail → **Assign personnel**
-6. **Assignment history** table on same page
-7. **Logout** → login as `personnel1@demo.local`
-8. **Assigned reports** → set status `in_progress` → `resolved`
-9. **Logout** → login as `citizen1@demo.local`
-10. **New report** with photo → **My reports**
-11. (Optional) **Import/Export** on admin panel
+**Page:** `admin/analytics.php`  
+**API:** `GET api/analytics/distribution.php` (admin only)
+
+CSS horizontal bar charts (no Chart.js / no framework) show:
+
+| Chart | Data |
+|-------|------|
+| Status | `open`, `assigned`, `in_progress`, `resolved` |
+| Priority | `low`, `medium`, `high`, `critical` |
+| Category | report count per category |
+| Area | report count per area |
+
+- Only **non-deleted** reports (`is_deleted = 0`) are counted.
+- Labels rendered with `textContent` (XSS-safe).
+- Loading, empty (“No data available”), and error (toast) states included.
+- Responsive: 2 columns desktop, 1 column mobile.
+
+Existing KPI / cleanest-dirtiest endpoints remain unchanged.
+
+## SLA / deadlines
+
+Each active report has a **due_at** deadline from `created_at` and **priority**:
+
+| Priority | SLA |
+|----------|-----|
+| low | +7 days |
+| medium | +3 days |
+| high | +24 hours |
+| critical | +6 hours |
+
+- **resolved_at** is set when status becomes `resolved`.
+- List/detail APIs add: `due_at`, `resolved_at`, `is_overdue`, `is_resolved_late`, `remaining_time`.
+- **Priority change:** `due_at` is recalculated from `created_at` only while status is not `resolved` or `rejected` (closed reports keep the historical deadline).
+- UI: SLA badges on admin/personnel report lists and report detail.
+- Analytics KPIs: overdue count, resolved late, SLA compliance %.
+
+## Report timeline
+
+**API:** `GET api/reports/timeline.php?report_id=` — same RBAC as report detail.
+
+Report detail pages show a vertical **Timeline** built from `activity_logs` (report + assignment events). Labels are human-readable in the UI.
+
+## Activity log (audit trail)
+
+Critical operations are recorded in `activity_logs` via `ActivityLog::write()`. Logging failures are written to PHP `error_log()` and **do not** fail the main API request.
+
+**Admin UI:** `admin/activity-log.php`  
+**API:** `GET api/admin/activity-log.php` (admin only)
+
+| Query param | Description |
+|-------------|-------------|
+| `action` | Exact action filter |
+| `entity_type` | `report`, `assignment`, `category`, `area`, `user` |
+| `q` | Search in details, actor name, or email |
+| `page`, `per_page` | Pagination (`per_page` 5–100, default 20) |
+
+### Logged actions
+
+| Area | Actions |
+|------|---------|
+| Reports | `report_created`, `report_updated`, `report_deleted`, `report_priority_changed`, `report_status_changed` |
+| Assignment | `report_assigned`, `assignment_progress_changed` |
+| Categories | `category_created`, `category_updated`, `category_deleted` |
+| Areas | `area_created`, `area_updated`, `area_deleted` |
+| Users | `user_role_changed`, `user_soft_deleted` |
+
+Details are stored as JSON (e.g. `old_status` / `new_status`, `assigned_to`, `priority`).
+
+## SLA list filter (admin)
+
+`GET api/reports/list.php?sla_status=…` — **admin role only** (403 for others).
+
+| Value | Meaning |
+|-------|---------|
+| `overdue` | Unresolved and `due_at` &lt; now |
+| `due_soon` | Unresolved and due within next 24 hours |
+| `on_time` | Unresolved and `due_at` &gt; now + 24 hours |
+| `resolved_late` | `resolved` and `resolved_at` &gt; `due_at` |
+
+Admin UI: **Admin → Reports** → **SLA status** dropdown (works with pagination and other filters).
+
+## Final demo guide
+
+### Demo accounts
+
+| Role | Email | Password |
+|------|--------|----------|
+| Admin | asliuzar4@gmail.com | Demo123! |
+| Personnel | personnel1@demo.local, personnel2@demo.local | Demo123! |
+| Citizen | citizen1@demo.local … citizen3@demo.local | Demo123! |
+
+### Prepare database
+
+```bash
+php scripts/seed_demo.php
+```
+
+Re-running seed is safe (`INSERT OR IGNORE` + idempotent `[DEMO-SLA]` reports).
+
+### Recommended demo order
+
+1. **Admin** — Analytics (KPI + charts) → Reports (SLA filter **Overdue only**) → Report detail (timeline, assign) → Activity log  
+2. **Personnel** — Open reports → Assign → Assigned tasks (progress + status)  
+3. **Citizen** — New report (priority + photo) → My reports  
+
+Full script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md)  
+Manual QA checklist: [`docs/TEST_CHECKLIST.md`](docs/TEST_CHECKLIST.md)
+
+### Course compliance (typical requirements)
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Web app with DB | PHP + SQLite + PDO |
+| User roles | citizen, personnel, admin |
+| CRUD | Reports, categories, areas, users (admin) |
+| Security | CSRF, RBAC, prepared statements, XSS-safe output |
+| No heavy frameworks | Vanilla PHP / JS / CSS |
+| Documentation | README + demo script + test checklist |
+
+### Known limitations
+
+- No email, push, or WebSocket notifications  
+- No map / geolocation UI  
+- Pagination UI on admin reports only (citizen/personnel use `per_page=50`)  
+- Single SQLite file (not suited for high concurrent write load)  
+- English UI (no i18n layer)  
+- Export/import does not apply list filters  
 
 ## Development scripts
 
 ```bash
-# Apply demo seed to existing DB
 php scripts/seed_demo.php
-
-# Create or reset admin password
 php scripts/create_admin.php [password]
+php scripts/test_sla_filter.php
+php scripts/test_sla_timeline.php
+php scripts/test_pagination.php
+php scripts/test_analytics_distribution.php
+php scripts/test_activity_log.php
+php scripts/validate_stages_1_2.php
 ```
 
 ## License / course

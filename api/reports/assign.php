@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\AssignmentHistory;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
@@ -113,5 +114,10 @@ try {
     $pdo->rollBack();
     Response::json(['ok' => false, 'error' => 'Assignment failed'], 500);
 }
+
+ActivityLog::write((int)$user['id'], 'report_assigned', 'assignment', $reportId, [
+    'assigned_to' => $personnelId,
+    'old_personnel_id' => $oldPersonnelId,
+]);
 
 Response::json(['ok' => true, 'report_id' => $reportId, 'personnel_id' => $personnelId]);

@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-// admin/analytics.php
-// Professional analytics dashboard for admins.
-
 require_once __DIR__ . '/../core/bootstrap.php';
 
 $user = \WebGamon\Core\Auth::user();
@@ -13,18 +10,22 @@ if (!$user || $user['role'] !== 'admin') {
 }
 
 $title = 'Admin - Analytics';
+$chartsJsFile = dirname(__DIR__) . '/assets/js/analytics-charts.js';
+$chartsJsVersion = file_exists($chartsJsFile) ? (string)filemtime($chartsJsFile) : '1';
+
 require __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="panel">
   <h1>System Analytics</h1>
-  <p>Live summary and data distribution across the system.</p>
+  <p>Live summary and visual distributions across active reports (soft-deleted reports excluded).</p>
 
   <div class="row" style="margin-top: 12px; gap: 10px; flex-wrap: wrap;">
     <a class="btn" href="<?= e(base_url('api/exports/csv.php')) ?>">Export CSV</a>
     <a class="btn" href="<?= e(base_url('api/exports/json.php')) ?>">Export JSON</a>
     <a class="btn" href="<?= e(base_url('api/exports/html.php')) ?>">Export HTML</a>
     <a class="btn" href="<?= e(base_url('admin/reports.php')) ?>">All Reports</a>
+    <a class="btn" href="<?= e(base_url('admin/activity-log.php')) ?>">Activity Log</a>
     <a class="btn" href="<?= e(base_url('admin/import.php')) ?>">Import Data</a>
   </div>
 
@@ -47,13 +48,26 @@ require __DIR__ . '/../includes/header.php';
       <div class="label">Total Users</div>
       <div class="value" id="kpi_total_users">—</div>
     </div>
+    <div class="kpi" style="border-color: #ff8a96;">
+      <div class="label">Overdue</div>
+      <div class="value" id="kpi_overdue_reports" style="color: #ff8a96;">—</div>
+    </div>
+    <div class="kpi" style="border-color: #f0abfc;">
+      <div class="label">Resolved Late</div>
+      <div class="value" id="kpi_resolved_late" style="color: #f0abfc;">—</div>
+    </div>
+    <div class="kpi" style="border-color: var(--accent);">
+      <div class="label">SLA Compliance</div>
+      <div class="value" id="kpi_sla_compliance" style="color: var(--accent);">—</div>
+    </div>
   </div>
 
   <div class="spacer"></div>
 
-  <h2 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--muted);">Status Breakdown</h2>
-  <div id="status_breakdown" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
-    <div class="kpi"><div class="label">Loading…</div></div>
+  <h2 style="font-size: 1.1rem; margin-bottom: 4px;">Report Distributions</h2>
+  <p style="color: var(--muted); font-size: 14px; margin: 0 0 8px;">Horizontal bar charts by status, priority, category, and area.</p>
+  <div id="analyticsChartsGrid" class="analytics-grid" aria-live="polite">
+    <p class="chart-empty">Loading charts…</p>
   </div>
 
   <div class="spacer"></div>
@@ -69,28 +83,10 @@ require __DIR__ . '/../includes/header.php';
       <div id="cleanest_areas">Loading...</div>
     </div>
   </div>
-
-  <div class="grid cols-2">
-    <div class="panel">
-      <h2>Distribution by Area</h2>
-      <div id="area_stats" style="margin-top: 10px;">Loading...</div>
-    </div>
-    <div class="panel">
-      <h2>Distribution by Category</h2>
-      <div id="cat_stats" style="margin-top: 10px;">Loading...</div>
-    </div>
-  </div>
 </div>
 
+<script src="<?= e(base_url('assets/js/analytics-charts.js')) ?>?v=<?= e($chartsJsVersion) ?>"></script>
 <script>
-  const STATUS_LABELS = {
-    open: 'Open',
-    assigned: 'Assigned',
-    in_progress: 'In progress',
-    resolved: 'Resolved',
-    rejected: 'Rejected',
-  };
-
   function renderStatList(container, items, labelKey) {
     container.textContent = '';
     if (!items || items.length === 0) {
@@ -118,29 +114,9 @@ require __DIR__ . '/../includes/header.php';
     });
   }
 
-  function renderStatusBreakdown(breakdown) {
-    const container = document.getElementById('status_breakdown');
-    container.textContent = '';
-    if (!breakdown) {
-      container.textContent = 'No breakdown data.';
-      return;
-    }
-    Object.keys(STATUS_LABELS).forEach((key) => {
-      const card = document.createElement('div');
-      card.className = 'kpi';
-      const label = document.createElement('div');
-      label.className = 'label';
-      label.textContent = STATUS_LABELS[key];
-      const value = document.createElement('div');
-      value.className = 'value';
-      value.textContent = String(breakdown[key] ?? 0);
-      card.appendChild(label);
-      card.appendChild(value);
-      container.appendChild(card);
-    });
-  }
-
   (async () => {
+    window.AnalyticsCharts.load('analyticsChartsGrid');
+
     try {
       const sumRes = await fetch(window.BASE_URL + 'api/analytics/summary.php', { credentials: 'same-origin' });
       const summary = await sumRes.json();
@@ -150,15 +126,9 @@ require __DIR__ . '/../includes/header.php';
       document.getElementById('kpi_pending_reports').textContent = String(summary.pending_reports ?? 0);
       document.getElementById('kpi_cleaned_reports').textContent = String(summary.cleaned_reports ?? 0);
       document.getElementById('kpi_total_users').textContent = String(summary.total_users ?? 0);
-      renderStatusBreakdown(summary.status_breakdown);
-
-      const areaRes = await fetch(window.BASE_URL + 'api/analytics/by-area.php', { credentials: 'same-origin' });
-      const areaData = await areaRes.json();
-      renderStatList(document.getElementById('area_stats'), areaData.items || [], 'area');
-
-      const catRes = await fetch(window.BASE_URL + 'api/analytics/by-category.php', { credentials: 'same-origin' });
-      const catData = await catRes.json();
-      renderStatList(document.getElementById('cat_stats'), catData.items || [], 'category');
+      document.getElementById('kpi_overdue_reports').textContent = String(summary.overdue_reports ?? 0);
+      document.getElementById('kpi_resolved_late').textContent = String(summary.resolved_late_reports ?? 0);
+      document.getElementById('kpi_sla_compliance').textContent = String(summary.sla_compliance_pct ?? 0) + '%';
 
       const cdRes = await fetch(window.BASE_URL + 'api/analytics/cleanest-dirtiest.php', { credentials: 'same-origin' });
       const cdData = await cdRes.json();
@@ -169,8 +139,9 @@ require __DIR__ . '/../includes/header.php';
       }
     } catch (err) {
       console.error('Analytics load error:', err);
-      document.getElementById('area_stats').textContent = 'Failed to load analytics.';
-      document.getElementById('cat_stats').textContent = 'Failed to load analytics.';
+      if (window.Toast) window.Toast.error(err.message || 'Failed to load summary.');
+      document.getElementById('dirtiest_areas').textContent = 'Failed to load.';
+      document.getElementById('cleanest_areas').textContent = 'Failed to load.';
     }
   })();
 </script>

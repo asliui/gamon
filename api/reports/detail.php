@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../core/bootstrap.php';
 use WebGamon\Core\Auth;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
+use WebGamon\Core\SLA;
 use WebGamon\Core\UserAccount;
 
 $user = Auth::requireLogin();
@@ -62,5 +63,6 @@ if ($user['role'] === 'personnel') {
 
 UserAccount::maskCitizenFields($report);
 UserAccount::maskPersonnelFields($report);
+$report = SLA::enrichReport($report);
 
 Response::json(['ok' => true, 'item' => $report]);

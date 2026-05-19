@@ -16,6 +16,8 @@ if (!$user || $user['role'] !== 'personnel') {
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $title = 'Task Details';
+$timelineJsFile = dirname(__DIR__) . '/assets/js/report-timeline.js';
+$timelineJsVersion = file_exists($timelineJsFile) ? (string)filemtime($timelineJsFile) : '1';
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -45,6 +47,11 @@ require __DIR__ . '/../includes/header.php';
     </div>
 
     <div class="field">
+        <label>SLA</label>
+        <div id="res_sla"></div>
+    </div>
+
+    <div class="field">
         <label>Category & Area</label>
         <div id="res_cat_area" style="color: var(--text);"></div>
     </div>
@@ -62,6 +69,11 @@ require __DIR__ . '/../includes/header.php';
     <div class="field">
         <label>Reported Date</label>
         <div id="res_date" style="color: var(--muted); margin-top: 10px;"></div>
+    </div>
+
+    <div class="panel" style="margin-top: 16px;">
+      <h2 style="margin-top: 0;">Timeline</h2>
+      <div id="reportTimeline"></div>
     </div>
   </div>
 </div>
@@ -111,6 +123,10 @@ require __DIR__ . '/../includes/header.php';
           statusEl.style.color = 'var(--accent)';
       }
 
+      const slaEl = document.getElementById('res_sla');
+      slaEl.textContent = '';
+      if (window.SLA) slaEl.appendChild(window.SLA.createBadge(item));
+
       document.getElementById('res_cat_area').textContent = item.category + ' | ' + item.area;
       document.getElementById('res_desc').textContent = item.description;
       document.getElementById('res_date').textContent = item.created_at;
@@ -124,10 +140,16 @@ require __DIR__ . '/../includes/header.php';
       document.getElementById('loading').style.display = 'none';
       document.getElementById('reportContent').style.display = 'block';
 
+      if (window.ReportTimeline) {
+        window.ReportTimeline.load('reportTimeline', reportId);
+      }
+
     } catch (err) {
       document.getElementById('loading').textContent = 'Error loading task details.';
     }
   })();
 </script>
+
+<script src="<?= e(base_url('assets/js/report-timeline.js')) ?>?v=<?= e($timelineJsVersion) ?>"></script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

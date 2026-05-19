@@ -14,6 +14,8 @@ if (!$user || $user['role'] !== 'admin') {
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $title = 'Admin - Report Details';
+$timelineJsFile = dirname(__DIR__) . '/assets/js/report-timeline.js';
+$timelineJsVersion = file_exists($timelineJsFile) ? (string)filemtime($timelineJsFile) : '1';
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -36,6 +38,17 @@ require __DIR__ . '/../includes/header.php';
     <div class="field">
       <label>Status</label>
       <div id="res_status" style="font-weight: bold; font-size: 1.2rem;"></div>
+    </div>
+
+    <div class="field">
+      <label>Priority</label>
+      <div id="res_priority"></div>
+    </div>
+
+    <div class="field">
+      <label>SLA / Deadline</label>
+      <div id="res_sla"></div>
+      <small id="res_due_at" style="display:block;color:var(--muted);margin-top:4px;"></small>
     </div>
 
     <div class="field">
@@ -86,6 +99,15 @@ require __DIR__ . '/../includes/header.php';
           <select id="edit_area" name="area_id" required></select>
         </div>
         <div class="field">
+          <label for="edit_priority">Priority</label>
+          <select id="edit_priority" name="priority" required>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div class="field">
           <label for="edit_status">Status</label>
           <select id="edit_status" name="status" required>
             <option value="open">open</option>
@@ -100,6 +122,12 @@ require __DIR__ . '/../includes/header.php';
           <button type="button" class="btn danger" id="deleteReportBtn">Soft delete report</button>
         </div>
       </form>
+    </div>
+
+    <div class="panel" id="timelineSection">
+      <h2 style="margin-top: 0;">Timeline</h2>
+      <p class="hint" style="margin: 0 0 8px; color: var(--muted); font-size: 13px;">Operational history from the activity log.</p>
+      <div id="reportTimeline"></div>
     </div>
 
     <div class="panel" id="historySection">
@@ -166,9 +194,9 @@ require __DIR__ . '/../includes/header.php';
     }
 
     const PROGRESS_LABELS = {
-      not_started: 'Yapılmadı',
-      in_progress: 'Yapılıyor',
-      completed: 'Yapıldı',
+      not_started: 'Not started',
+      in_progress: 'In progress',
+      completed: 'Completed',
     };
 
     function setAssignmentDisplay(item) {
@@ -178,12 +206,12 @@ require __DIR__ . '/../includes/header.php';
           (item.personnel_name || 'Personnel #' + item.personnel_id) +
           ' (' + (item.personnel_email || '—') + ') — assigned ' + (item.assigned_at || '');
         const ps = item.assignment_progress_status || 'not_started';
-        text += '\nÇalışma durumu: ' + (PROGRESS_LABELS[ps] || ps);
+        text += '\nWork status: ' + (PROGRESS_LABELS[ps] || ps);
         if (item.assignment_progress_updated_at) {
-          text += '\nSon güncelleme: ' + item.assignment_progress_updated_at;
+          text += '\nLast updated: ' + item.assignment_progress_updated_at;
         }
         if (item.assignment_progress_note) {
-          text += '\nNot: ' + item.assignment_progress_note;
+          text += '\nNote: ' + item.assignment_progress_note;
         }
         assignEl.textContent = text;
         assignEl.style.whiteSpace = 'pre-line';
@@ -258,6 +286,21 @@ require __DIR__ . '/../includes/header.php';
       else if (item.status === 'resolved') statusEl.style.color = 'var(--ok)';
       else statusEl.style.color = 'var(--accent)';
 
+      const priEl = document.getElementById('res_priority');
+      priEl.textContent = '';
+      priEl.appendChild(window.Priority.createBadge(item.priority || 'medium'));
+
+      const slaEl = document.getElementById('res_sla');
+      slaEl.textContent = '';
+      if (window.SLA) {
+        slaEl.appendChild(window.SLA.createBadge(item));
+      }
+      const dueEl = document.getElementById('res_due_at');
+      dueEl.textContent = item.due_at ? 'Due at: ' + item.due_at : '';
+      if (item.resolved_at) {
+        dueEl.textContent += (dueEl.textContent ? ' · ' : '') + 'Resolved: ' + item.resolved_at;
+      }
+
       document.getElementById('res_cat_area').textContent = item.category + ' | ' + item.area;
       document.getElementById('res_citizen').textContent =
         (item.citizen_name || 'Unknown') + ' (' + (item.citizen_email || '—') + ')';
@@ -280,6 +323,7 @@ require __DIR__ . '/../includes/header.php';
 
     function fillEditForm(item) {
       document.getElementById('edit_description').value = item.description || '';
+      document.getElementById('edit_priority').value = item.priority || 'medium';
       document.getElementById('edit_status').value = item.status || 'open';
       const catSel = document.getElementById('edit_category');
       const areaSel = document.getElementById('edit_area');
@@ -375,6 +419,7 @@ require __DIR__ . '/../includes/header.php';
           category_id: parseInt(document.getElementById('edit_category').value, 10),
           area_id: parseInt(document.getElementById('edit_area').value, 10),
           status: document.getElementById('edit_status').value,
+          priority: document.getElementById('edit_priority').value,
         });
         notify('Report updated.', true);
         await refreshReport();
@@ -414,6 +459,9 @@ require __DIR__ . '/../includes/header.php';
         loading.style.display = 'none';
         document.getElementById('reportContent').style.display = 'block';
         renderReport(item);
+        if (window.ReportTimeline) {
+          window.ReportTimeline.load('reportTimeline', reportId);
+        }
         await loadHistory();
       } catch (err) {
         DomSafe.setAlert(loading, err.message || 'Error loading report details.');
@@ -421,5 +469,7 @@ require __DIR__ . '/../includes/header.php';
     })();
   })();
 </script>
+
+<script src="<?= e(base_url('assets/js/report-timeline.js')) ?>?v=<?= e($timelineJsVersion) ?>"></script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -33,6 +33,35 @@ foreach ($stmt->fetchAll() as $row) {
     }
 }
 
+$overdueReports = (int)$pdo->query("
+    SELECT COUNT(*) FROM reports
+    WHERE is_deleted = 0
+      AND status NOT IN ('resolved', 'rejected')
+      AND due_at IS NOT NULL
+      AND due_at < datetime('now')
+")->fetchColumn();
+
+$resolvedLateReports = (int)$pdo->query("
+    SELECT COUNT(*) FROM reports
+    WHERE is_deleted = 0
+      AND status = 'resolved'
+      AND due_at IS NOT NULL
+      AND resolved_at IS NOT NULL
+      AND resolved_at > due_at
+")->fetchColumn();
+
+$resolvedWithSla = (int)$pdo->query("
+    SELECT COUNT(*) FROM reports
+    WHERE is_deleted = 0
+      AND status = 'resolved'
+      AND due_at IS NOT NULL
+      AND resolved_at IS NOT NULL
+")->fetchColumn();
+
+$slaCompliancePct = $resolvedWithSla > 0
+    ? round((($resolvedWithSla - $resolvedLateReports) / $resolvedWithSla) * 100, 1)
+    : 100.0;
+
 Response::json([
     'ok' => true,
     'total_reports' => $totalReports,
@@ -40,4 +69,7 @@ Response::json([
     'cleaned_reports' => $cleanedReports,
     'total_users' => $totalUsers,
     'status_breakdown' => $breakdown,
+    'overdue_reports' => $overdueReports,
+    'resolved_late_reports' => $resolvedLateReports,
+    'sla_compliance_pct' => $slaCompliancePct,
 ]);

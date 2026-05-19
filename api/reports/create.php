@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-// api/reports/create.php — Create a waste report (multipart; citizen by default).
-
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
+use WebGamon\Core\ReportPriority;
+use WebGamon\Core\SLA;
 use WebGamon\Core\Response;
 use WebGamon\Core\Upload;
 use WebGamon\Core\Validator;
@@ -27,6 +28,11 @@ $errors = array_filter($errors, fn($v) => $v !== null);
 
 if ($errors) {
     Response::json(['ok' => false, 'error' => 'Validation failed', 'fields' => $errors], 422);
+}
+
+$priority = ReportPriority::normalize($data['priority'] ?? ReportPriority::DEFAULT);
+if ($priority === null) {
+    Response::json(['ok' => false, 'error' => 'Validation failed', 'fields' => ['priority' => 'Invalid value.']], 422);
 }
 
 $categoryId = (int)$data['category_id'];
@@ -50,9 +56,12 @@ if (isset($_FILES['image'])) {
     $imagePath = Upload::storeReportImage($_FILES['image'], $config);
 }
 
+$createdAt = gmdate('Y-m-d H:i:s');
+$dueAt = SLA::calculateDueAt($priority, $createdAt);
+
 $stmt = DB::pdo()->prepare('
-  INSERT INTO reports (citizen_id, category_id, area_id, description, image_path, status)
-  VALUES (:citizen_id, :category_id, :area_id, :description, :image_path, :status)
+  INSERT INTO reports (citizen_id, category_id, area_id, description, image_path, status, priority, due_at, created_at, updated_at)
+  VALUES (:citizen_id, :category_id, :area_id, :description, :image_path, :status, :priority, :due_at, :created_at, :updated_at)
 ');
 
 $stmt->execute([
@@ -62,7 +71,18 @@ $stmt->execute([
     ':description' => $description,
     ':image_path' => $imagePath,
     ':status' => 'open',
+    ':priority' => $priority,
+    ':due_at' => $dueAt,
+    ':created_at' => $createdAt,
+    ':updated_at' => $createdAt,
 ]);
 
 $reportId = (int)DB::pdo()->lastInsertId();
-Response::json(['ok' => true, 'report_id' => $reportId], 201);
+
+ActivityLog::write((int)$user['id'], 'report_created', 'report', $reportId, [
+    'priority' => $priority,
+    'category_id' => $categoryId,
+    'area_id' => $areaId,
+]);
+
+Response::json(['ok' => true, 'report_id' => $reportId, 'priority' => $priority], 201);

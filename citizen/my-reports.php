@@ -51,7 +51,7 @@ require __DIR__ . '/../includes/header.php';
   (async () => {
     const tbody = document.getElementById('reportsBody');
     try {
-      const res = await fetch(window.BASE_URL + 'api/reports/list.php?limit=100', { credentials: 'same-origin' });
+      const res = await fetch(window.BASE_URL + 'api/reports/list.php?per_page=50', { credentials: 'same-origin' });
       const data = await res.json();
 
       if (!data.ok || !data.items || data.items.length === 0) {

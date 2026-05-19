@@ -36,6 +36,15 @@ require __DIR__ . '/../includes/header.php';
       <select id="area_id" name="area_id" required></select>
     </div>
     <div class="field">
+      <label for="priority">Priority</label>
+      <select id="priority" name="priority" required>
+        <option value="low">Low</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
+        <option value="critical">Critical</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="description">Description</label>
       <textarea id="description" name="description" required placeholder="Describe the waste issue in detail..."></textarea>
     </div>

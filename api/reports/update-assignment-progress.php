@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
@@ -67,11 +68,18 @@ $update = DB::pdo()->prepare('
         progress_updated_at = datetime(\'now\')
     WHERE report_id = :report_id AND personnel_id = :personnel_id
 ');
+$oldProgress = (string)($assignment['progress_status'] ?? 'not_started');
+
 $update->execute([
     ':progress_status' => $progressStatus,
     ':progress_note' => $progressNote !== '' ? $progressNote : null,
     ':report_id' => $reportId,
     ':personnel_id' => (int)$user['id'],
+]);
+
+ActivityLog::write((int)$user['id'], 'assignment_progress_changed', 'assignment', $reportId, [
+    'old_progress_status' => $oldProgress,
+    'new_progress_status' => $progressStatus,
 ]);
 
 $fetch = DB::pdo()->prepare('

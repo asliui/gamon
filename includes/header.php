@@ -24,8 +24,12 @@ $user = $user ?? null;
   $csrfToken = \WebGamon\Core\Csrf::token();
   $apiJsFile = dirname(__DIR__) . '/assets/js/api.js';
   $toastJsFile = dirname(__DIR__) . '/assets/js/toast.js';
+  $priorityJsFile = dirname(__DIR__) . '/assets/js/priority.js';
+  $slaJsFile = dirname(__DIR__) . '/assets/js/sla.js';
   $apiJsVersion = file_exists($apiJsFile) ? (string)filemtime($apiJsFile) : '1';
   $toastJsVersion = file_exists($toastJsFile) ? (string)filemtime($toastJsFile) : '1';
+  $priorityJsVersion = file_exists($priorityJsFile) ? (string)filemtime($priorityJsFile) : '1';
+  $slaJsVersion = file_exists($slaJsFile) ? (string)filemtime($slaJsFile) : '1';
   ?>
   <meta name="csrf-token" content="<?= e($csrfToken) ?>" />
   <script>
@@ -35,6 +39,8 @@ $user = $user ?? null;
   <script src="<?= e(base_url('assets/js/dom-safe.js')) ?>"></script>
   <script src="<?= e(base_url('assets/js/api.js')) ?>?v=<?= e($apiJsVersion) ?>"></script>
   <script src="<?= e(base_url('assets/js/toast.js')) ?>?v=<?= e($toastJsVersion) ?>"></script>
+  <script src="<?= e(base_url('assets/js/priority.js')) ?>?v=<?= e($priorityJsVersion) ?>"></script>
+  <script src="<?= e(base_url('assets/js/sla.js')) ?>?v=<?= e($slaJsVersion) ?>"></script>
 </head>
 <body>
   <div class="topbar" id="topbar">

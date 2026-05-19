@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
 use WebGamon\Core\Response;
 use WebGamon\Core\Validator;
 
-Auth::requireRole('admin');
+$admin = Auth::requireRole('admin');
 Csrf::verify();
 $data = Response::readJsonBody();
 
@@ -23,6 +24,10 @@ if ($errors) {
 
 $id = (int)$data['id'];
 
+$nameStmt = DB::pdo()->prepare('SELECT name FROM areas WHERE id = :id');
+$nameStmt->execute([':id' => $id]);
+$areaRow = $nameStmt->fetch();
+
 $used = DB::pdo()->prepare('SELECT 1 FROM reports WHERE area_id = :id AND is_deleted = 0 LIMIT 1');
 $used->execute([':id' => $id]);
 if ($used->fetchColumn()) {
@@ -34,5 +39,9 @@ $stmt->execute([':id' => $id]);
 if ($stmt->rowCount() === 0) {
     Response::json(['ok' => false, 'error' => 'Area not found'], 404);
 }
+
+ActivityLog::write((int)$admin['id'], 'area_deleted', 'area', $id, [
+    'name' => $areaRow ? (string)$areaRow['name'] : null,
+]);
 
 Response::json(['ok' => true]);

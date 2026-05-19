@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\ActivityLog;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
@@ -53,7 +54,19 @@ if (!$isAdmin) {
 
 ReportStatus::assertCanTransition($currentStatus, $newStatus, $isAdmin);
 
-DB::pdo()->prepare('UPDATE reports SET status = :status, updated_at = datetime(\'now\') WHERE id = :id')
+$resolvedSql = '';
+if ($newStatus === 'resolved' && $currentStatus !== 'resolved') {
+    $resolvedSql = ", resolved_at = datetime('now')";
+} elseif ($newStatus !== 'resolved' && $currentStatus === 'resolved') {
+    $resolvedSql = ', resolved_at = NULL';
+}
+
+DB::pdo()->prepare("UPDATE reports SET status = :status, updated_at = datetime('now'){$resolvedSql} WHERE id = :id")
     ->execute([':status' => $newStatus, ':id' => $reportId]);
+
+ActivityLog::write((int)$user['id'], 'report_status_changed', 'report', $reportId, [
+    'old_status' => $currentStatus,
+    'new_status' => $newStatus,
+]);
 
 Response::json(['ok' => true]);

@@ -15,7 +15,10 @@ require_once __DIR__ . '/Upload.php';
 require_once __DIR__ . '/ImportService.php';
 require_once __DIR__ . '/UserAccount.php';
 require_once __DIR__ . '/ReportStatus.php';
+require_once __DIR__ . '/ReportPriority.php';
 require_once __DIR__ . '/AssignmentHistory.php';
+require_once __DIR__ . '/ActivityLog.php';
+require_once __DIR__ . '/SLA.php';
 
 $config = require __DIR__ . '/../config/config.php';
 

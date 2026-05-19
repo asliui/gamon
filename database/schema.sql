@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS reports (
   description TEXT NOT NULL,
   image_path TEXT NULL,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'assigned', 'in_progress', 'resolved', 'rejected')),
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+  due_at TEXT NULL,
+  resolved_at TEXT NULL,
   is_deleted INTEGER NOT NULL DEFAULT 0,
   deleted_at TEXT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -69,7 +72,23 @@ CREATE TABLE IF NOT EXISTS assignment_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+-- idx_reports_priority: created in DB::patchReportsPriority() for existing DB compatibility
 CREATE INDEX IF NOT EXISTS idx_reports_area ON reports(area_id);
 CREATE INDEX IF NOT EXISTS idx_reports_category ON reports(category_id);
 CREATE INDEX IF NOT EXISTS idx_reports_citizen ON reports(citizen_id);
 CREATE INDEX IF NOT EXISTS idx_assignment_history_report ON assignment_history(report_id);
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_user_id INTEGER NULL,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id INTEGER NULL,
+  details TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_entity_type ON activity_logs(entity_type);
