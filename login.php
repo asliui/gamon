@@ -46,9 +46,6 @@ $authJsFile = __DIR__ . '/assets/js/auth.js';
 $authJsVersion = file_exists($authJsFile) ? (string)filemtime($authJsFile) : '1';
 ?>
 <script src="<?= e(base_url('assets/js/auth.js')) ?>?v=<?= e($authJsVersion) ?>"></script>
-<script>
-  console.log('CSRF token:', window.CSRF_TOKEN);
-</script>
 <?php if (isset($_GET['account_deleted'])): ?>
 <script>
   document.addEventListener('DOMContentLoaded', function () {

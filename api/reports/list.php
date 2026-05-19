@@ -22,7 +22,7 @@ $categoryId = isset($_GET['category_id']) ? (int)$_GET['category_id'] : null;
 $areaId = isset($_GET['area_id']) ? (int)$_GET['area_id'] : null;
 
 $params = [':limit' => $limit];
-$where = [];
+$where = ['r.is_deleted = 0'];
 
 if ($status !== null && $status !== '') {
     $where[] = 'r.status = :status';
@@ -44,6 +44,13 @@ if ($user['role'] === 'citizen') {
     $params[':citizen_id'] = (int)$user['id'];
 }
 
+if ($user['role'] === 'personnel' && (!isset($_GET['assigned_to']) || $_GET['assigned_to'] !== 'me')) {
+    $where[] = "(r.status = 'open' OR EXISTS (
+        SELECT 1 FROM assignments ax WHERE ax.report_id = r.id AND ax.personnel_id = :personnel_scope
+    ))";
+    $params[':personnel_scope'] = (int)$user['id'];
+}
+
 $joinAssignments = '';
 if (isset($_GET['assigned_to']) && $_GET['assigned_to'] === 'me' && in_array($user['role'], ['personnel', 'admin'])) {
     $joinAssignments = ' JOIN assignments asm ON asm.report_id = r.id ';
@@ -52,6 +59,14 @@ if (isset($_GET['assigned_to']) && $_GET['assigned_to'] === 'me' && in_array($us
 }
 
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+$assignmentFields = '';
+if ($joinAssignments !== '') {
+    $assignmentFields = "
+    asm.progress_status AS assignment_progress_status,
+    asm.progress_note AS assignment_progress_note,
+    asm.progress_updated_at AS assignment_progress_updated_at,";
+}
 
 $sql = "
   SELECT
@@ -62,7 +77,9 @@ $sql = "
     c.name AS category,
     a.name AS area,
     u.email AS citizen_email,
-    u.is_deleted AS citizen_is_deleted
+    u.is_deleted AS citizen_is_deleted,
+    {$assignmentFields}
+    1 AS _row
   FROM reports r
   JOIN categories c ON c.id = r.category_id
   JOIN areas a ON a.id = r.area_id
@@ -76,7 +93,7 @@ $sql = "
 $stmt = DB::pdo()->prepare($sql);
 foreach ($params as $k => $v) {
     $type = \PDO::PARAM_STR;
-    if ($k === ':limit' || $k === ':citizen_id' || $k === ':personnel_id' || $k === ':category_id' || $k === ':area_id') {
+    if ($k === ':limit' || $k === ':citizen_id' || $k === ':personnel_id' || $k === ':personnel_scope' || $k === ':category_id' || $k === ':area_id') {
         $type = \PDO::PARAM_INT;
     }
     $stmt->bindValue($k, $v, $type);
@@ -86,6 +103,7 @@ $stmt->execute();
 $items = $stmt->fetchAll();
 foreach ($items as &$item) {
     UserAccount::maskListCitizenEmail($item);
+    unset($item['_row']);
 }
 unset($item);
 

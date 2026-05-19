@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-// api/reports/assign.php
-// Assigns a report to personnel. Personnel can assign open tasks to themselves; admins assign any active personnel.
-
 require_once __DIR__ . '/../../core/bootstrap.php';
 
+use WebGamon\Core\AssignmentHistory;
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
+use WebGamon\Core\ReportStatus;
 use WebGamon\Core\Response;
 use WebGamon\Core\Validator;
 
@@ -19,11 +18,9 @@ $data = Response::readJsonBody();
 
 $errors = [];
 $errors['report_id'] = Validator::int($data, 'report_id');
-
 if ($user['role'] === 'admin') {
     $errors['personnel_id'] = Validator::int($data, 'personnel_id');
 }
-
 $errors = array_filter($errors, fn($v) => $v !== null);
 if ($errors) {
     Response::json(['ok' => false, 'error' => 'Validation failed', 'fields' => $errors], 422);
@@ -32,10 +29,10 @@ if ($errors) {
 $reportId = (int)$data['report_id'];
 $personnelId = ($user['role'] === 'personnel') ? (int)$user['id'] : (int)$data['personnel_id'];
 
-$reportStmt = DB::pdo()->prepare('SELECT id, status FROM reports WHERE id = :id');
+$reportStmt = DB::pdo()->prepare('SELECT id, status, is_deleted FROM reports WHERE id = :id');
 $reportStmt->execute([':id' => $reportId]);
 $report = $reportStmt->fetch();
-if (!$report) {
+if (!$report || (int)($report['is_deleted'] ?? 0) === 1) {
     Response::json(['ok' => false, 'error' => 'Report not found'], 404);
 }
 
@@ -67,20 +64,54 @@ if ($user['role'] === 'admin') {
     }
 }
 
-$stmt = DB::pdo()->prepare('
-  INSERT INTO assignments (report_id, personnel_id)
-  VALUES (:report_id, :personnel_id)
-  ON CONFLICT(report_id) DO UPDATE SET
-    personnel_id = excluded.personnel_id,
-    assigned_at = datetime(\'now\')
-');
+$oldPersonnelId = null;
+$existingStmt = DB::pdo()->prepare('SELECT personnel_id FROM assignments WHERE report_id = :report_id');
+$existingStmt->execute([':report_id' => $reportId]);
+$existingRow = $existingStmt->fetch();
+if ($existingRow) {
+    $oldPersonnelId = (int)$existingRow['personnel_id'];
+    if ($oldPersonnelId === $personnelId) {
+        Response::json(['ok' => true, 'report_id' => $reportId, 'personnel_id' => $personnelId, 'unchanged' => true]);
+    }
+}
 
-$stmt->execute([
-    ':report_id' => $reportId,
-    ':personnel_id' => $personnelId,
-]);
+$pdo = DB::pdo();
+$pdo->beginTransaction();
+try {
+    $stmt = $pdo->prepare('
+      INSERT INTO assignments (report_id, personnel_id)
+      VALUES (:report_id, :personnel_id)
+      ON CONFLICT(report_id) DO UPDATE SET
+        personnel_id = excluded.personnel_id,
+        assigned_at = datetime(\'now\'),
+        progress_status = CASE
+          WHEN assignments.personnel_id != excluded.personnel_id THEN \'not_started\'
+          ELSE assignments.progress_status
+        END,
+        progress_note = CASE
+          WHEN assignments.personnel_id != excluded.personnel_id THEN NULL
+          ELSE assignments.progress_note
+        END,
+        progress_updated_at = CASE
+          WHEN assignments.personnel_id != excluded.personnel_id THEN NULL
+          ELSE assignments.progress_updated_at
+        END
+    ');
+    $stmt->execute([
+        ':report_id' => $reportId,
+        ':personnel_id' => $personnelId,
+    ]);
 
-DB::pdo()->prepare('UPDATE reports SET status = :status, updated_at = datetime(\'now\') WHERE id = :id')
-    ->execute([':status' => 'assigned', ':id' => $reportId]);
+    AssignmentHistory::record($reportId, $oldPersonnelId, $personnelId, (int)$user['id'], $pdo);
+
+    $newStatus = ReportStatus::statusAfterAssignment($reportStatus);
+    $pdo->prepare('UPDATE reports SET status = :status, updated_at = datetime(\'now\') WHERE id = :id')
+        ->execute([':status' => $newStatus, ':id' => $reportId]);
+
+    $pdo->commit();
+} catch (\Throwable $e) {
+    $pdo->rollBack();
+    Response::json(['ok' => false, 'error' => 'Assignment failed'], 500);
+}
 
 Response::json(['ok' => true, 'report_id' => $reportId, 'personnel_id' => $personnelId]);

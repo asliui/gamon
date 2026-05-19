@@ -14,6 +14,8 @@ require_once __DIR__ . '/Response.php';
 require_once __DIR__ . '/Upload.php';
 require_once __DIR__ . '/ImportService.php';
 require_once __DIR__ . '/UserAccount.php';
+require_once __DIR__ . '/ReportStatus.php';
+require_once __DIR__ . '/AssignmentHistory.php';
 
 $config = require __DIR__ . '/../config/config.php';
 
@@ -21,6 +23,8 @@ mb_internal_encoding('UTF-8');
 date_default_timezone_set('UTC');
 
 ini_set('session.use_strict_mode', '1');
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_samesite', 'Lax');
 session_name($config['security']['session_name']);
 session_start();
 

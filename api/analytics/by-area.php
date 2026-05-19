@@ -16,7 +16,7 @@ Auth::requireRole('admin');
 $stmt = DB::pdo()->query('
   SELECT a.name AS area, COUNT(r.id) AS count
   FROM areas a
-  LEFT JOIN reports r ON r.area_id = a.id
+  LEFT JOIN reports r ON r.area_id = a.id AND r.is_deleted = 0
   GROUP BY a.id
   ORDER BY count DESC
 ');

@@ -18,7 +18,7 @@ header('Content-Disposition: attachment; filename="reports.csv"');
 $out = fopen('php://output', 'w');
 fputcsv($out, ['id', 'citizen_id', 'category_id', 'area_id', 'status', 'created_at']);
 
-$stmt = DB::pdo()->query('SELECT id, citizen_id, category_id, area_id, status, created_at FROM reports ORDER BY id DESC');
+$stmt = DB::pdo()->query('SELECT id, citizen_id, category_id, area_id, status, created_at FROM reports WHERE is_deleted = 0 ORDER BY id DESC');
 foreach ($stmt->fetchAll() as $row) {
     fputcsv($out, $row);
 }

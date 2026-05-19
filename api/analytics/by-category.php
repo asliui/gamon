@@ -16,7 +16,7 @@ Auth::requireRole('admin');
 $stmt = DB::pdo()->query('
   SELECT c.name AS category, COUNT(r.id) AS count
   FROM categories c
-  LEFT JOIN reports r ON r.category_id = c.id
+  LEFT JOIN reports r ON r.category_id = c.id AND r.is_deleted = 0
   GROUP BY c.id
   ORDER BY count DESC
 ');

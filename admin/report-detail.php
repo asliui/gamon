@@ -70,6 +70,48 @@ require __DIR__ . '/../includes/header.php';
 
     <div class="spacer"></div>
 
+    <div class="panel" id="editSection">
+      <h2 style="margin-top: 0;">Edit Report</h2>
+      <form id="editReportForm">
+        <div class="field">
+          <label for="edit_description">Description</label>
+          <textarea id="edit_description" name="description" rows="4" required></textarea>
+        </div>
+        <div class="field">
+          <label for="edit_category">Category</label>
+          <select id="edit_category" name="category_id" required></select>
+        </div>
+        <div class="field">
+          <label for="edit_area">Area</label>
+          <select id="edit_area" name="area_id" required></select>
+        </div>
+        <div class="field">
+          <label for="edit_status">Status</label>
+          <select id="edit_status" name="status" required>
+            <option value="open">open</option>
+            <option value="assigned">assigned</option>
+            <option value="in_progress">in_progress</option>
+            <option value="resolved">resolved</option>
+            <option value="rejected">rejected</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn" id="saveReportBtn">Save changes</button>
+          <button type="button" class="btn danger" id="deleteReportBtn">Soft delete report</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel" id="historySection">
+      <h2 style="margin-top: 0;">Assignment History</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>When</th><th>From</th><th>To</th><th>By</th></tr>
+        </thead>
+        <tbody id="historyBody"><tr><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
     <div class="panel" id="assignSection" style="border-color: rgba(110, 231, 255, 0.25);">
       <h2 style="margin-top: 0;">Assign Personnel</h2>
       <p class="hint" id="assignHint">Select active personnel to assign or reassign this report.</p>
@@ -103,7 +145,15 @@ require __DIR__ . '/../includes/header.php';
     const assignSection = document.getElementById('assignSection');
 
     let personnelList = [];
+    let categories = [];
+    let areas = [];
     let currentReport = null;
+
+    function notify(msg, ok) {
+      if (window.Toast) {
+        ok ? window.Toast.success(msg) : window.Toast.error(msg);
+      }
+    }
 
     function showAssignMsg(text, ok) {
       assignMsg.style.display = 'block';
@@ -115,12 +165,28 @@ require __DIR__ . '/../includes/header.php';
       assignMsg.style.display = 'none';
     }
 
+    const PROGRESS_LABELS = {
+      not_started: 'Yapılmadı',
+      in_progress: 'Yapılıyor',
+      completed: 'Yapıldı',
+    };
+
     function setAssignmentDisplay(item) {
       const assignEl = document.getElementById('res_assignment');
       if (item.personnel_id) {
-        assignEl.textContent =
+        let text =
           (item.personnel_name || 'Personnel #' + item.personnel_id) +
           ' (' + (item.personnel_email || '—') + ') — assigned ' + (item.assigned_at || '');
+        const ps = item.assignment_progress_status || 'not_started';
+        text += '\nÇalışma durumu: ' + (PROGRESS_LABELS[ps] || ps);
+        if (item.assignment_progress_updated_at) {
+          text += '\nSon güncelleme: ' + item.assignment_progress_updated_at;
+        }
+        if (item.assignment_progress_note) {
+          text += '\nNot: ' + item.assignment_progress_note;
+        }
+        assignEl.textContent = text;
+        assignEl.style.whiteSpace = 'pre-line';
         assignEl.style.color = 'var(--text)';
       } else {
         assignEl.textContent = 'Not assigned yet';
@@ -209,6 +275,60 @@ require __DIR__ . '/../includes/header.php';
       }
 
       updateAssignUi(item);
+      fillEditForm(item);
+    }
+
+    function fillEditForm(item) {
+      document.getElementById('edit_description').value = item.description || '';
+      document.getElementById('edit_status').value = item.status || 'open';
+      const catSel = document.getElementById('edit_category');
+      const areaSel = document.getElementById('edit_area');
+      catSel.textContent = '';
+      areaSel.textContent = '';
+      categories.forEach((c) => {
+        const o = document.createElement('option');
+        o.value = String(c.id);
+        o.textContent = c.name;
+        if (Number(c.id) === Number(item.category_id)) o.selected = true;
+        catSel.appendChild(o);
+      });
+      areas.forEach((a) => {
+        const o = document.createElement('option');
+        o.value = String(a.id);
+        o.textContent = a.name;
+        if (Number(a.id) === Number(item.area_id)) o.selected = true;
+        areaSel.appendChild(o);
+      });
+    }
+
+    async function loadHistory() {
+      const tbody = document.getElementById('historyBody');
+      try {
+        const data = await window.WG.apiGet('api/reports/assignment-history.php?report_id=' + reportId);
+        const items = data.items || [];
+        if (!items.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="muted-cell">No assignment history yet.</td></tr>';
+          return;
+        }
+        tbody.textContent = '';
+        items.forEach((h) => {
+          const tr = document.createElement('tr');
+          const cells = [
+            h.assigned_at || '',
+            h.old_personnel_name || '—',
+            h.new_personnel_name || '—',
+            h.assigned_by_name || '—',
+          ];
+          cells.forEach((text) => {
+            const td = document.createElement('td');
+            td.textContent = text;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4" class="danger-cell">Could not load history.</td></tr>';
+      }
     }
 
     async function refreshReport() {
@@ -233,13 +353,46 @@ require __DIR__ . '/../includes/header.php';
           report_id: reportId,
           personnel_id: personnelId,
         });
-        showAssignMsg('Personnel assigned successfully.', true);
+        notify('Personnel assigned successfully.', true);
         await refreshReport();
+        await loadHistory();
       } catch (err) {
         showAssignMsg(err.message || 'Failed to assign personnel.', false);
       } finally {
         assignBtn.disabled = personnelList.length === 0;
         personnelSelect.disabled = personnelList.length === 0;
+      }
+    });
+
+    document.getElementById('editReportForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('saveReportBtn');
+      btn.classList.add('btn-loading');
+      try {
+        await window.WG.apiPost('api/reports/update.php', {
+          report_id: reportId,
+          description: document.getElementById('edit_description').value,
+          category_id: parseInt(document.getElementById('edit_category').value, 10),
+          area_id: parseInt(document.getElementById('edit_area').value, 10),
+          status: document.getElementById('edit_status').value,
+        });
+        notify('Report updated.', true);
+        await refreshReport();
+      } catch (err) {
+        notify(err.message || 'Update failed.', false);
+      } finally {
+        btn.classList.remove('btn-loading');
+      }
+    });
+
+    document.getElementById('deleteReportBtn').addEventListener('click', async () => {
+      if (!confirm('Soft-delete this report?')) return;
+      try {
+        await window.WG.apiPost('api/reports/delete.php', { report_id: reportId });
+        notify('Report deleted.', true);
+        window.location.href = window.BASE_URL + 'admin/reports.php';
+      } catch (err) {
+        notify(err.message || 'Delete failed.', false);
       }
     });
 
@@ -250,11 +403,18 @@ require __DIR__ . '/../includes/header.php';
       }
 
       try {
+        const [catData, areaData] = await Promise.all([
+          window.WG.apiGet('api/categories/list.php'),
+          window.WG.apiGet('api/areas/list.php'),
+        ]);
+        categories = catData.items || [];
+        areas = areaData.items || [];
         await loadPersonnel();
         const item = await loadReportDetail();
         loading.style.display = 'none';
         document.getElementById('reportContent').style.display = 'block';
         renderReport(item);
+        await loadHistory();
       } catch (err) {
         DomSafe.setAlert(loading, err.message || 'Error loading report details.');
       }

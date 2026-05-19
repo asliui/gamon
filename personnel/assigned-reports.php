@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-// personnel/assigned-reports.php
-// Lists reports assigned to the current personnel and allows status updates.
-
 require_once __DIR__ . '/../core/bootstrap.php';
 
 $user = \WebGamon\Core\Auth::user();
@@ -20,132 +17,226 @@ require __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="panel">
-  <h1>My Assigned Tasks</h1>
-  <p>Reports you have assigned to yourself. Update their status as you progress.</p>
-
+  <h1>Atanan Görevlerim</h1>
+  <p>Size atanmış raporlar. Genel rapor durumu ile çalışma ilerlemenizi (assignment progress) ayrı güncelleyebilirsiniz.</p>
   <div class="spacer"></div>
 
   <div style="overflow-x: auto;">
-    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+    <table class="data-table" id="assignedTable">
       <thead>
-        <tr style="border-bottom: 1px solid var(--border);">
-          <th style="padding: 12px 8px;">ID</th>
-          <th style="padding: 12px 8px;">Category & Area</th>
-          <th style="padding: 12px 8px;">Description</th>
-          <th style="padding: 12px 8px;">Status</th>
-          <th style="padding: 12px 8px;">Action</th>
+        <tr>
+          <th>ID</th>
+          <th>Kategori / Bölge</th>
+          <th>Açıklama</th>
+          <th>Rapor Durumu</th>
+          <th>Çalışma Durumu</th>
+          <th>İşlemler</th>
         </tr>
       </thead>
       <tbody id="assignedBody">
-        <tr><td colspan="5" style="padding: 12px 8px;">Loading...</td></tr>
+        <tr><td colspan="6">Yükleniyor...</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
 <script>
-  async function updateStatus(reportId, newStatus) {
-    try {
-      await window.Reports.apiPost('api/reports/update-status.php', {
-        report_id: reportId,
-        status: newStatus
-      });
-      // Reload page to see the updated status and buttons
-      window.location.reload();
-    } catch (err) {
-      alert(err.message || 'Failed to update status.');
+  const PROGRESS_LABELS = {
+    not_started: 'Yapılmadı',
+    in_progress: 'Yapılıyor',
+    completed: 'Yapıldı',
+  };
+
+  function notify(msg, ok) {
+    if (window.Toast) {
+      ok ? window.Toast.success(msg) : window.Toast.error(msg);
+    } else {
+      alert(msg);
     }
   }
 
-  (async () => {
-    const tbody = document.getElementById('assignedBody');
+  async function updateReportStatus(reportId, newStatus) {
     try {
-      // Fetch only tasks assigned to "me"
-      const res = await fetch(window.BASE_URL + 'api/reports/list.php?assigned_to=me&limit=100', { credentials: 'same-origin' });
-      const data = await res.json();
+      await window.WG.apiPost('api/reports/update-status.php', {
+        report_id: reportId,
+        status: newStatus,
+      });
+      notify('Rapor durumu güncellendi.', true);
+      loadAssigned();
+    } catch (err) {
+      notify(err.message || 'Durum güncellenemedi.', false);
+    }
+  }
 
-      if (!data.ok || !data.items || data.items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px 8px; color: var(--muted);">You have no assigned tasks. Go to Open Reports to take a job.</td></tr>';
-          return;
+  async function updateAssignmentProgress(reportId, progressStatus, progressNote, btn) {
+    if (btn) btn.classList.add('btn-loading');
+    try {
+      await window.WG.apiPost('api/reports/update-assignment-progress.php', {
+        report_id: reportId,
+        progress_status: progressStatus,
+        progress_note: progressNote,
+      });
+      notify('Çalışma durumu güncellendi.', true);
+      loadAssigned();
+    } catch (err) {
+      notify(err.message || 'İlerleme güncellenemedi.', false);
+    } finally {
+      if (btn) btn.classList.remove('btn-loading');
+    }
+  }
+
+  function buildProgressForm(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'progress-form';
+    wrap.style.marginTop = '8px';
+    wrap.style.padding = '10px';
+    wrap.style.border = '1px solid var(--border)';
+    wrap.style.borderRadius = '10px';
+    wrap.style.background = 'rgba(0,0,0,0.15)';
+
+    const selLabel = document.createElement('label');
+    selLabel.textContent = 'Çalışma durumu';
+    selLabel.style.display = 'block';
+    selLabel.style.fontSize = '12px';
+    selLabel.style.color = 'var(--muted)';
+    selLabel.style.marginBottom = '4px';
+
+    const sel = document.createElement('select');
+    sel.style.width = '100%';
+    sel.style.marginBottom = '8px';
+    ['not_started', 'in_progress', 'completed'].forEach((val) => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = PROGRESS_LABELS[val];
+      if ((item.assignment_progress_status || 'not_started') === val) {
+        opt.selected = true;
+      }
+      sel.appendChild(opt);
+    });
+
+    const noteLabel = document.createElement('label');
+    noteLabel.textContent = 'Açıklama / not';
+    noteLabel.style.display = 'block';
+    noteLabel.style.fontSize = '12px';
+    noteLabel.style.color = 'var(--muted)';
+    noteLabel.style.marginBottom = '4px';
+
+    const note = document.createElement('textarea');
+    note.rows = 2;
+    note.style.width = '100%';
+    note.style.marginBottom = '8px';
+    note.placeholder = 'Örn. Ekip olay yerine ulaştı...';
+    note.value = item.assignment_progress_note || '';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm';
+    btn.style.background = 'var(--accent)';
+    btn.textContent = 'Progress Güncelle';
+    btn.addEventListener('click', () => {
+      updateAssignmentProgress(item.id, sel.value, note.value.trim(), btn);
+    });
+
+    wrap.append(selLabel, sel, noteLabel, note, btn);
+    return wrap;
+  }
+
+  async function loadAssigned() {
+    const tbody = document.getElementById('assignedBody');
+    tbody.innerHTML = '<tr><td colspan="6">Yükleniyor...</td></tr>';
+    try {
+      const data = await window.WG.apiGet('api/reports/list.php?assigned_to=me&limit=100');
+      if (!data.items || data.items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="muted-cell">Atanmış görev yok. Açık raporlardan görev alın.</td></tr>';
+        return;
       }
 
       tbody.textContent = '';
-
       data.items.forEach((item) => {
+        const ps = item.assignment_progress_status || 'not_started';
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
 
-        let statusColor = 'var(--text)';
-        if (item.status === 'assigned') statusColor = 'var(--accent)';
-        else if (item.status === 'in_progress') statusColor = '#f59e0b';
-        else if (item.status === 'resolved') statusColor = 'var(--ok)';
-
         const tdId = document.createElement('td');
-        tdId.style.padding = '12px 8px';
         tdId.textContent = '#' + item.id;
 
         const tdCat = document.createElement('td');
-        tdCat.style.padding = '12px 8px';
-        tdCat.appendChild(document.createTextNode(item.category ?? ''));
+        tdCat.appendChild(document.createTextNode(item.category || ''));
         tdCat.appendChild(document.createElement('br'));
         const small = document.createElement('small');
         small.style.color = 'var(--muted)';
-        small.textContent = item.area ?? '';
+        small.textContent = item.area || '';
         tdCat.appendChild(small);
 
-        const desc = String(item.description ?? '');
+        const desc = String(item.description || '');
         const tdDesc = document.createElement('td');
-        tdDesc.style.padding = '12px 8px';
-        tdDesc.textContent = desc.length > 50 ? desc.substring(0, 50) + '...' : desc;
+        tdDesc.textContent = desc.length > 60 ? desc.substring(0, 60) + '...' : desc;
+        tdDesc.title = desc;
 
         const tdStatus = document.createElement('td');
-        tdStatus.style.padding = '12px 8px';
-        tdStatus.style.color = statusColor;
         tdStatus.style.fontWeight = 'bold';
         tdStatus.textContent = String(item.status || '').toUpperCase();
 
+        const tdProgress = document.createElement('td');
+        const progMain = document.createElement('div');
+        progMain.style.fontWeight = 'bold';
+        progMain.textContent = PROGRESS_LABELS[ps] || ps;
+        tdProgress.appendChild(progMain);
+        if (item.assignment_progress_updated_at) {
+          const upd = document.createElement('small');
+          upd.style.display = 'block';
+          upd.style.color = 'var(--muted)';
+          upd.textContent = 'Son: ' + item.assignment_progress_updated_at;
+          tdProgress.appendChild(upd);
+        }
+        if (item.assignment_progress_note) {
+          const nt = document.createElement('small');
+          nt.style.display = 'block';
+          nt.style.marginTop = '4px';
+          nt.textContent = item.assignment_progress_note;
+          tdProgress.appendChild(nt);
+        }
+
         const tdAct = document.createElement('td');
-        tdAct.style.padding = '12px 8px';
-        tdAct.style.display = 'flex';
-        tdAct.style.alignItems = 'center';
+        tdAct.style.verticalAlign = 'top';
 
         const viewLink = document.createElement('a');
         viewLink.href = window.BASE_URL + 'personnel/report-detail.php?id=' + encodeURIComponent(String(item.id));
-        viewLink.className = 'btn';
-        viewLink.style.cssText = 'padding: 6px 10px; font-size: 12px; margin-right: 8px;';
-        viewLink.textContent = 'View';
+        viewLink.className = 'btn btn-sm';
+        viewLink.textContent = 'Detay';
+        viewLink.style.marginBottom = '8px';
+        viewLink.style.display = 'inline-block';
         tdAct.appendChild(viewLink);
 
         if (item.status === 'assigned') {
-          const btn = document.createElement('button');
-          btn.className = 'btn';
-          btn.style.cssText = 'padding: 6px 12px; font-size: 12px;';
-          btn.textContent = 'Start Work';
-          btn.type = 'button';
-          btn.addEventListener('click', () => updateStatus(item.id, 'in_progress'));
-          tdAct.appendChild(btn);
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn btn-sm';
+          b.textContent = 'İşe Başla (rapor)';
+          b.style.marginLeft = '6px';
+          b.addEventListener('click', () => updateReportStatus(item.id, 'in_progress'));
+          tdAct.appendChild(b);
         } else if (item.status === 'in_progress') {
-          const btn = document.createElement('button');
-          btn.className = 'btn';
-          btn.style.cssText = 'padding: 6px 12px; font-size: 12px; background: rgba(54,211,153,0.15); color: var(--ok); border-color: var(--ok);';
-          btn.textContent = 'Mark Resolved';
-          btn.type = 'button';
-          btn.addEventListener('click', () => updateStatus(item.id, 'resolved'));
-          tdAct.appendChild(btn);
-        } else if (item.status === 'resolved') {
-          const span = document.createElement('span');
-          span.style.cssText = 'color: var(--muted); font-size: 12px;';
-          span.textContent = 'Completed';
-          tdAct.appendChild(span);
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn btn-sm';
+          b.textContent = 'Çözüldü (rapor)';
+          b.style.marginLeft = '6px';
+          b.addEventListener('click', () => updateReportStatus(item.id, 'resolved'));
+          tdAct.appendChild(b);
         }
 
-        tr.append(tdId, tdCat, tdDesc, tdStatus, tdAct);
+        tdAct.appendChild(buildProgressForm(item));
+
+        tr.append(tdId, tdCat, tdDesc, tdStatus, tdProgress, tdAct);
         tbody.appendChild(tr);
       });
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="5" style="padding: 12px 8px; color: var(--danger);">Failed to load data.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="danger-cell">Veri yüklenemedi.</td></tr>';
     }
-  })();
+  }
+
+  loadAssigned();
 </script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

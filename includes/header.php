@@ -23,7 +23,9 @@ $user = $user ?? null;
   <?php
   $csrfToken = \WebGamon\Core\Csrf::token();
   $apiJsFile = dirname(__DIR__) . '/assets/js/api.js';
+  $toastJsFile = dirname(__DIR__) . '/assets/js/toast.js';
   $apiJsVersion = file_exists($apiJsFile) ? (string)filemtime($apiJsFile) : '1';
+  $toastJsVersion = file_exists($toastJsFile) ? (string)filemtime($toastJsFile) : '1';
   ?>
   <meta name="csrf-token" content="<?= e($csrfToken) ?>" />
   <script>
@@ -32,6 +34,7 @@ $user = $user ?? null;
   </script>
   <script src="<?= e(base_url('assets/js/dom-safe.js')) ?>"></script>
   <script src="<?= e(base_url('assets/js/api.js')) ?>?v=<?= e($apiJsVersion) ?>"></script>
+  <script src="<?= e(base_url('assets/js/toast.js')) ?>?v=<?= e($toastJsVersion) ?>"></script>
 </head>
 <body>
   <div class="topbar" id="topbar">

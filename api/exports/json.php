@@ -15,6 +15,6 @@ Auth::requireRole('admin');
 header('Content-Type: application/json; charset=utf-8');
 header('Content-Disposition: attachment; filename="reports.json"');
 
-$stmt = DB::pdo()->query('SELECT * FROM reports ORDER BY id DESC');
+$stmt = DB::pdo()->query('SELECT * FROM reports WHERE is_deleted = 0 ORDER BY id DESC');
 echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 

@@ -27,6 +27,9 @@ $stmt = DB::pdo()->prepare('
     uc.is_deleted AS citizen_is_deleted,
     asm.personnel_id,
     asm.assigned_at,
+    asm.progress_status AS assignment_progress_status,
+    asm.progress_note AS assignment_progress_note,
+    asm.progress_updated_at AS assignment_progress_updated_at,
     up.name AS personnel_name,
     up.email AS personnel_email,
     up.is_deleted AS personnel_is_deleted
@@ -36,7 +39,7 @@ $stmt = DB::pdo()->prepare('
   JOIN users uc ON uc.id = r.citizen_id
   LEFT JOIN assignments asm ON asm.report_id = r.id
   LEFT JOIN users up ON up.id = asm.personnel_id
-  WHERE r.id = :id
+  WHERE r.id = :id AND r.is_deleted = 0
 ');
 $stmt->execute([':id' => $id]);
 $report = $stmt->fetch();

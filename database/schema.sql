@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS reports (
   description TEXT NOT NULL,
   image_path TEXT NULL,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'assigned', 'in_progress', 'resolved', 'rejected')),
+  is_deleted INTEGER NOT NULL DEFAULT 0,
+  deleted_at TEXT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (citizen_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -46,12 +48,28 @@ CREATE TABLE IF NOT EXISTS assignments (
   report_id INTEGER NOT NULL UNIQUE,
   personnel_id INTEGER NOT NULL,
   assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+  progress_status TEXT NOT NULL DEFAULT 'not_started' CHECK (progress_status IN ('not_started', 'in_progress', 'completed')),
+  progress_note TEXT NULL,
+  progress_updated_at TEXT NULL,
   FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
   FOREIGN KEY (personnel_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS assignment_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_id INTEGER NOT NULL,
+  old_personnel_id INTEGER NULL,
+  new_personnel_id INTEGER NOT NULL,
+  assigned_by INTEGER NOT NULL,
+  assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
+  FOREIGN KEY (old_personnel_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (new_personnel_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
 CREATE INDEX IF NOT EXISTS idx_reports_area ON reports(area_id);
 CREATE INDEX IF NOT EXISTS idx_reports_category ON reports(category_id);
 CREATE INDEX IF NOT EXISTS idx_reports_citizen ON reports(citizen_id);
-
+CREATE INDEX IF NOT EXISTS idx_assignment_history_report ON assignment_history(report_id);

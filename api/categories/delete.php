@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../core/bootstrap.php';
+
+use WebGamon\Core\Auth;
+use WebGamon\Core\Csrf;
+use WebGamon\Core\DB;
+use WebGamon\Core\Response;
+use WebGamon\Core\Validator;
+
+Auth::requireRole('admin');
+Csrf::verify();
+$data = Response::readJsonBody();
+
+$errors = [];
+$errors['id'] = Validator::int($data, 'id');
+$errors = array_filter($errors, fn($v) => $v !== null);
+if ($errors) {
+    Response::json(['ok' => false, 'error' => 'Validation failed', 'fields' => $errors], 422);
+}
+
+$id = (int)$data['id'];
+
+$used = DB::pdo()->prepare('SELECT 1 FROM reports WHERE category_id = :id AND is_deleted = 0 LIMIT 1');
+$used->execute([':id' => $id]);
+if ($used->fetchColumn()) {
+    Response::json(['ok' => false, 'error' => 'Category is used by active reports and cannot be deleted.'], 409);
+}
+
+$stmt = DB::pdo()->prepare('DELETE FROM categories WHERE id = :id');
+$stmt->execute([':id' => $id]);
+if ($stmt->rowCount() === 0) {
+    Response::json(['ok' => false, 'error' => 'Category not found'], 404);
+}
+
+Response::json(['ok' => true]);

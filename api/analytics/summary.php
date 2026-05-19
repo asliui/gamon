@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-// api/analytics/summary.php
-// Minimal summary counts for admin dashboard.
-
 require_once __DIR__ . '/../../core/bootstrap.php';
 
 use WebGamon\Core\Auth;
@@ -13,16 +10,15 @@ use WebGamon\Core\Response;
 
 Auth::requireRole('admin');
 
-$totalReports = (int)DB::pdo()->query('SELECT COUNT(*) AS c FROM reports')->fetch()['c'];
-$pendingReports = (int)DB::pdo()->query("SELECT COUNT(*) AS c FROM reports WHERE status = 'open'")->fetch()['c'];
-$cleanedReports = (int)DB::pdo()->query("SELECT COUNT(*) AS c FROM reports WHERE status = 'resolved'")->fetch()['c'];
-$totalUsers = (int)DB::pdo()->query('SELECT COUNT(*) AS c FROM users WHERE is_deleted = 0')->fetch()['c'];
+$pdo = DB::pdo();
+$active = 'is_deleted = 0';
 
-$stmt = DB::pdo()->query("
-  SELECT status, COUNT(*) AS count
-  FROM reports
-  GROUP BY status
-");
+$totalReports = (int)$pdo->query("SELECT COUNT(*) AS c FROM reports WHERE {$active}")->fetch()['c'];
+$pendingReports = (int)$pdo->query("SELECT COUNT(*) AS c FROM reports WHERE {$active} AND status = 'open'")->fetch()['c'];
+$cleanedReports = (int)$pdo->query("SELECT COUNT(*) AS c FROM reports WHERE {$active} AND status = 'resolved'")->fetch()['c'];
+$totalUsers = (int)$pdo->query('SELECT COUNT(*) AS c FROM users WHERE is_deleted = 0')->fetch()['c'];
+
+$stmt = $pdo->query("SELECT status, COUNT(*) AS count FROM reports WHERE {$active} GROUP BY status");
 $breakdown = [
     'open' => 0,
     'assigned' => 0,
@@ -45,4 +41,3 @@ Response::json([
     'total_users' => $totalUsers,
     'status_breakdown' => $breakdown,
 ]);
-

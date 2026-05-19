@@ -47,8 +47,6 @@ require __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-  console.log('CSRF token:', window.CSRF_TOKEN);
-
   const CURRENT_USER_ID = <?= (int)$user['id'] ?>;
   const ADMIN_EMAIL = <?= json_encode($adminEmail, JSON_UNESCAPED_SLASHES) ?>;
 
@@ -110,7 +108,6 @@ require __DIR__ . '/../includes/header.php';
       });
       if (isSelf) {
         const loginDeleted = <?= json_encode(base_url('login.php?account_deleted=1'), JSON_UNESCAPED_SLASHES) ?>;
-        console.log('delete redirect target:', loginDeleted);
         window.location.replace(loginDeleted);
         return;
       }

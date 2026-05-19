@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-// api/reports/update-status.php — Update report status (personnel/admin).
-
 require_once __DIR__ . '/../../core/bootstrap.php';
 
 use WebGamon\Core\Auth;
 use WebGamon\Core\Csrf;
 use WebGamon\Core\DB;
+use WebGamon\Core\ReportStatus;
 use WebGamon\Core\Response;
 use WebGamon\Core\Validator;
 
@@ -27,11 +26,19 @@ if ($errors) {
 $reportId = (int)$data['report_id'];
 $newStatus = (string)$data['status'];
 
-// Personnel can only update statuses for reports assigned to themselves.
-if ($user['role'] === 'personnel') {
+$reportStmt = DB::pdo()->prepare('SELECT id, status, is_deleted FROM reports WHERE id = :id');
+$reportStmt->execute([':id' => $reportId]);
+$report = $reportStmt->fetch();
+if (!$report || (int)($report['is_deleted'] ?? 0) === 1) {
+    Response::json(['ok' => false, 'error' => 'Report not found'], 404);
+}
+
+$currentStatus = (string)$report['status'];
+$isAdmin = $user['role'] === 'admin';
+
+if (!$isAdmin) {
     $check = DB::pdo()->prepare('
-      SELECT 1
-      FROM assignments
+      SELECT 1 FROM assignments
       WHERE report_id = :report_id AND personnel_id = :personnel_id
       LIMIT 1
     ');
@@ -44,11 +51,9 @@ if ($user['role'] === 'personnel') {
     }
 }
 
-$stmt = DB::pdo()->prepare('UPDATE reports SET status = :status, updated_at = datetime(\'now\') WHERE id = :id');
-$stmt->execute([
-    ':status' => $newStatus,
-    ':id' => $reportId,
-]);
+ReportStatus::assertCanTransition($currentStatus, $newStatus, $isAdmin);
+
+DB::pdo()->prepare('UPDATE reports SET status = :status, updated_at = datetime(\'now\') WHERE id = :id')
+    ->execute([':status' => $newStatus, ':id' => $reportId]);
 
 Response::json(['ok' => true]);
-

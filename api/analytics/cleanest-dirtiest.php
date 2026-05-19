@@ -15,7 +15,7 @@ Auth::requireRole('admin');
 $stmt = DB::pdo()->query("
   SELECT a.name AS area, SUM(CASE WHEN r.status != 'resolved' THEN 1 ELSE 0 END) AS open_count
   FROM areas a
-  LEFT JOIN reports r ON r.area_id = a.id
+  LEFT JOIN reports r ON r.area_id = a.id AND r.is_deleted = 0
   GROUP BY a.id
   ORDER BY open_count DESC
 ");

@@ -118,7 +118,6 @@ require __DIR__ . '/includes/header.php';
         throw new Error(data.error || 'Could not delete account.');
       }
 
-      console.log('delete redirect target:', LOGIN_DELETED_URL);
       window.location.replace(LOGIN_DELETED_URL);
     } catch (err) {
       if (btn) btn.disabled = false;

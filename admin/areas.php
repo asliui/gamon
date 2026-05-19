@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-// admin/areas.php
-// Admin page to list and manage cleanup areas/districts.
-
 require_once __DIR__ . '/../core/bootstrap.php';
 
 $user = \WebGamon\Core\Auth::user();
@@ -16,95 +13,195 @@ $title = 'Admin - Areas';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="grid cols-2">
-  <div class="panel">
-    <h2>Add New Area</h2>
-    <p>Define a new operational district for waste management.</p>
+<div class="admin-page-header">
+  <div>
+    <h1>Areas</h1>
+    <p>Manage operational districts for waste reports and analytics.</p>
+  </div>
+  <span class="badge">Admin</span>
+</div>
 
-    <div id="msg" class="alert" style="display:none; margin-bottom: 15px;"></div>
-    
-    <form id="areaForm">
+<div class="admin-grid">
+  <div class="admin-card">
+    <h2>Add New Area</h2>
+    <p class="admin-card-desc">Define a zone personnel and citizens can select on reports.</p>
+    <form id="areaForm" class="admin-form">
       <div class="field">
-        <label for="name">Area Name</label>
-        <input type="text" id="name" name="name" required placeholder="e.g., Downtown North" />
+        <label for="name">Area name</label>
+        <input type="text" id="name" name="name" required placeholder="e.g. Downtown North" autocomplete="off" />
       </div>
-      <div class="actions" style="margin-top: 15px;">
-        <button class="btn" type="submit" style="width: 100%; background: var(--accent); font-weight: bold;">Create Area</button>
-      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="createAreaBtn">Create Area</button>
     </form>
   </div>
 
-  <div class="panel">
+  <div class="admin-card admin-card--list">
     <h2>Current Areas</h2>
-    <div class="spacer"></div>
-    <div style="overflow-x: auto;">
-      <table style="width: 100%; border-collapse: collapse; text-align: left;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border);">
-            <th style="padding: 12px 8px;">ID</th>
-            <th style="padding: 12px 8px;">Area Name</th>
-          </tr>
-        </thead>
-        <tbody id="areaBody">
-          <tr><td colspan="2" style="padding: 12px 8px;">Loading areas...</td></tr>
-        </tbody>
-      </table>
+    <p class="admin-card-desc" id="areaCount">Loading…</p>
+    <div class="entity-list-scroll">
+      <div id="entityList" class="entity-list" aria-live="polite">
+        <div class="entity-empty"><strong>Loading</strong><p>Please wait…</p></div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-  console.log('CSRF token:', window.CSRF_TOKEN);
+  function notify(msg, ok) {
+    if (window.Toast) {
+      ok ? window.Toast.success(msg) : window.Toast.error(msg);
+    }
+  }
 
-  function showMsg(text, isError = false) {
-    const msgEl = document.getElementById('msg');
-    msgEl.style.display = 'block';
-    msgEl.className = isError ? 'alert' : 'alert ok';
-    msgEl.textContent = text;
-    setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
+  function setListLoading(loading) {
+    document.getElementById('entityList').classList.toggle('is-loading', loading);
+  }
+
+  function renderEmpty(message, hint) {
+    const list = document.getElementById('entityList');
+    list.textContent = '';
+    const box = document.createElement('div');
+    box.className = 'entity-empty';
+    const strong = document.createElement('strong');
+    strong.textContent = message;
+    const p = document.createElement('p');
+    p.textContent = hint;
+    box.append(strong, p);
+    list.appendChild(box);
+  }
+
+  function renderError(message) {
+    const list = document.getElementById('entityList');
+    list.textContent = '';
+    const box = document.createElement('div');
+    box.className = 'entity-error';
+    box.textContent = message;
+    list.appendChild(box);
+  }
+
+  function buildRow(item, onSave, onDelete) {
+    const row = document.createElement('div');
+    row.className = 'entity-row';
+
+    const idBadge = document.createElement('span');
+    idBadge.className = 'entity-id';
+    idBadge.textContent = '#' + item.id;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'entity-name-input';
+    input.value = item.name || '';
+    input.setAttribute('aria-label', 'Area name for #' + item.id);
+
+    const actions = document.createElement('div');
+    actions.className = 'entity-actions';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn-small btn-primary';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', async () => {
+      const name = input.value.trim();
+      if (!name) {
+        notify('Area name cannot be empty.', false);
+        return;
+      }
+      saveBtn.classList.add('btn-loading');
+      saveBtn.disabled = true;
+      try {
+        await onSave(item.id, name);
+      } finally {
+        saveBtn.classList.remove('btn-loading');
+        saveBtn.disabled = false;
+      }
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-small btn-danger';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => onDelete(item.id));
+
+    actions.append(saveBtn, delBtn);
+    row.append(idBadge, input, actions);
+    return row;
   }
 
   async function loadAreas() {
-    const tbody = document.getElementById('areaBody');
+    const list = document.getElementById('entityList');
+    const countEl = document.getElementById('areaCount');
+    setListLoading(true);
     try {
-      const res = await fetch(window.BASE_URL + 'api/areas/list.php', { credentials: 'same-origin' });
-      const data = await res.json();
+      const data = await window.WG.apiGet('api/areas/list.php');
+      const items = data.items || [];
+      countEl.textContent = items.length + ' area' + (items.length === 1 ? '' : 's') + ' defined';
 
-      if (!data.ok || !data.items || data.items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="2" style="padding: 12px 8px; color: var(--muted);">No areas defined.</td></tr>';
-          return;
+      if (items.length === 0) {
+        renderEmpty('No areas yet', 'Use the form on the left to add your first area.');
+        return;
       }
 
-      tbody.textContent = '';
-      data.items.forEach((item) => {
-        const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
-        const tdId = document.createElement('td');
-        tdId.style.padding = '12px 8px';
-        tdId.style.color = 'var(--muted)';
-        tdId.textContent = '#' + item.id;
-        const tdName = document.createElement('td');
-        tdName.style.padding = '12px 8px';
-        tdName.style.fontWeight = 'bold';
-        tdName.textContent = item.name ?? '';
-        tr.append(tdId, tdName);
-        tbody.appendChild(tr);
+      list.textContent = '';
+      items.forEach((item) => {
+        list.appendChild(buildRow(item, updateArea, deleteArea));
       });
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="2" style="padding: 12px 8px; color: var(--danger);">Failed to load areas.</td></tr>';
+      countEl.textContent = 'Could not load list';
+      renderError(err.message || 'Failed to load areas.');
+    } finally {
+      setListLoading(false);
+    }
+  }
+
+  async function updateArea(id, name) {
+    try {
+      await window.WG.apiPost('api/areas/update.php', { id, name });
+      notify('Area saved successfully.', true);
+      loadAreas();
+    } catch (err) {
+      const msg = err.message || 'Update failed.';
+      notify(msg.includes('already exists') ? 'An area with this name already exists.' : msg, false);
+    }
+  }
+
+  async function deleteArea(id) {
+    if (!confirm('Delete this area? This cannot be undone.')) return;
+    try {
+      await window.WG.apiPost('api/areas/delete.php', { id });
+      notify('Area deleted.', true);
+      loadAreas();
+    } catch (err) {
+      const msg = err.message || 'Delete failed.';
+      notify(
+        msg.includes('used by active') || msg.includes('cannot be deleted')
+          ? 'This area is used by active reports and cannot be deleted.'
+          : msg,
+        false
+      );
     }
   }
 
   document.getElementById('areaForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
+    const btn = document.getElementById('createAreaBtn');
+    const name = form.name.value.trim();
+    if (!name) {
+      notify('Please enter an area name.', false);
+      return;
+    }
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
     try {
-      await window.Reports.apiPost('api/areas/create.php', { name: form.name.value });
-      showMsg('Area created successfully!');
+      await window.WG.apiPost('api/areas/create.php', { name });
+      notify('Area created successfully!', true);
       form.reset();
       loadAreas();
     } catch (err) {
-      showMsg(err.message || 'Failed to create area.', true);
+      const msg = err.message || 'Failed to create area.';
+      notify(msg.includes('already exists') ? 'An area with this name already exists.' : msg, false);
+    } finally {
+      btn.classList.remove('btn-loading');
+      btn.disabled = false;
     }
   });
 
